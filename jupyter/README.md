@@ -1,7 +1,7 @@
 # Partitioning
 * **part one** creates the container _(we are in this one right now)_
 * **part two** spins up the airflow and builds DAGs
-* **part three** calls the cloud of choice to execute our tasks
+* **part three** calls the AWS(local stack in our mock case) to execute our tasks
 
 
 # What will get done
@@ -130,3 +130,7 @@ and then
 ```
 >>> docker cp 124fad5be5e0:/notebook/output/code_execution_444444.ipynb ./
 ```
+
+# But what we have done?
+Well, now _somebody else_(another system, that is) can run our task with little dependencies(only docker) and knowledge about what the task actually does. It is a huge deal, as will be shown in the second part.
+

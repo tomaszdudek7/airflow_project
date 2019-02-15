@@ -3,3 +3,12 @@
 jupyter/**/.ipynb_checkpoints
 
 jupyter/**/output
+
+**/__pycache__
+
+*.pyc
+
+airflow.cfg
+airflow.db
+
+logs/*

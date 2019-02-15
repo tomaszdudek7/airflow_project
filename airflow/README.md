@@ -55,4 +55,9 @@ with DAG('example_dag', default_args=default_args, schedule_interval=timedelta(d
 
     t1 >> [t2, t3] >> t4
 ```
-and go to http://localhost:8080/admin/ and trigger it. Should all go well
+and go to http://localhost:8080/admin/ and trigger it. Should all go well the DAG(pretty dumb) will be ran.
+
+## Moving on
+Our scheduling system is ready, our tasks however, are not. Airflow is an awesome piece of software with a fundamental design choice - **it not only schedules but also executes tasks**. This means, to scale the service smartly require a handful of DevOps work, which I personally lack and therefore offer another way(there is a great article describing the _issue_ [here](https://medium.com/bluecore-engineering/were-all-using-airflow-wrong-and-how-to-fix-it-a56f14cb0753)).
+
+First, we will create a class that is able to launch python scripts. Then we rewrite the script to launch Docker containers in the cloud and wait for the result(in our example instead of actually using AWS we will mock the service using great `localstack`). 
