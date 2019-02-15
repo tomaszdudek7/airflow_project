@@ -1,4 +1,4 @@
-# set up jupyter "basic" environment:
+# set up jupyter "basic lab environment":
 ```bash
 mkvirtualenv airflow_jupyter --python=python3.6
 pip install -r requirements.txt
@@ -28,5 +28,12 @@ and then create parameters cell:
 ![enable tags](createparameters.png)
 
 
+# run papermill
+depending on your catalog structure the command will look approximately like this:
+```bash
+papermill task_1/code.ipynb task_1/output/code_exectuion_1.ipynb -f task_1/params.yaml
+```
+
+# wrap up in docker container
 
 
