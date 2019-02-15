@@ -35,29 +35,21 @@ default_args = {
 
 with DAG('example_dag', default_args=default_args, schedule_interval=timedelta(days=1)) as dag:
     t1 = BashOperator(
-        task_id='print_date',
+        task_id='print_date1',
         bash_command='date')
 
     t2 = BashOperator(
-        task_id='sleep',
+        task_id='sleep1',
         bash_command='sleep 5',
         retries=3)
 
-    templated_command = """
-        {% for i in range(5) %}
-            echo "{{ ds }}"
-            echo "{{ macros.ds_add(ds, 7)}}"
-            echo "{{ params.my_param }}"
-        {% endfor %}
-    """
-
     t3 = BashOperator(
-        task_id='templated',
-        bash_command=templated_command,
-        params={'my_param': 'Parameter I passed in'})
+        task_id='sleep2',
+        bash_command='sleep 5',
+        retries=3)
 
     t4 = BashOperator(
-        task_id='sleep',
+        task_id='sleep3',
         bash_command='sleep 5',
         retries=3)
 
