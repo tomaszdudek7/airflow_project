@@ -13,7 +13,7 @@ We will create a **dockered parametrizable Jupyter notebook** that will be later
 * `Docker` 
 
 # Steps required:
-### 1. set up jupyter "basic lab environment"
+### 1. Set up jupyter "basic lab environment"
 ```bash
 mkvirtualenv airflow_jupyter --python=python3.6
 pip install jupyter ipython [and whatever else you need]
@@ -26,7 +26,7 @@ jupyter nteract
 **warning** - the name of virtualenv of choice, in this case `airflow_jupyter`, will be used later - because we'd rather not clutter our workstation, we could want to use separate kernels for each task. But in the end, the notebook getting scheduled 
 expects the kernel to actually exists. We will make sure it actually does, by creating it later in the Dockerfile, just before spinning up the notebook.  
 
-#### 2. create example notebook
+### 2. Create example notebook
 ```python
 %matplotlib inline
 import pandas as pd
@@ -38,7 +38,7 @@ plt.figure(figsize=(18,10))
 plt.scatter(x, y, c='r')
 plt.show()
 ```
-### 3. add parameters cell
+### 3. Add parameters cell
 enable
 ![enable tags](enabletags.png)
 
@@ -47,13 +47,13 @@ and then create cell:
 ![enable tags](createparameters.png)
 
 
-### 4. run papermill (no docker yet)
+### 4. Run `papermill` (with no docker yet)
 depending on your catalog structure the command will look approximately like this:
 ```bash
 papermill task_1/code.ipynb task_1/output/code_exectuion_1.ipynb -f task_1/params.yaml
 ```
 if all went well proceed to the next step
-### 5. wrap up the notebook in a docker container
+### 5. Wrap up the notebook in a docker container
 first off, dump a requirements.txt to task folder as each task should have its own, as tiny as possible, virtual environment
 ```python
 pip freeze > requirements.txt
@@ -89,7 +89,7 @@ WORKDIR notebook
 ENTRYPOINT ["bash", "./run.sh"]
 ```
 
-### 7. create `params.yaml` and `run.sh`
+### 6. Create `params.yaml` and `run.sh`
 now create a little `run.sh` oneliner to run the script: (we might replace `run.sh` to `run.py` at later time, when Airflow will inject into container more params (unique container id, execution id, database or cloud credentials etc.) and more steps will be necessary to ensure proper execution)
 ```bash
 #!/usr/bin/env bash
@@ -102,7 +102,7 @@ input_size: 500
 
 # default parameters, this file should be overwritten by airflow
 ```
-### 8. run the example
+### 7. Run the example
 Build the container:
 
 `docker build . -t task1`
