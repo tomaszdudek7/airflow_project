@@ -5,15 +5,15 @@
 
 
 # What will get done
-We will create a **dockered parametrizable Jupyter notebook** that will be later used as baseline for DAGs and scheduled by Apache Airflow. All that while running in the cloud. Woah.
+We will create a **dockered parametrizable Jupyter notebook** that will be later used as baseline for DAGs and scheduled by Apache Airflow. All that while running in the cloud.
 
 # Technologies used
-* data science starter pack (`pandas`, `numpy`, `seaborn`)
+* data science starter pack as an example notebook (`pandas`, `numpy`, `seaborn`)
 * `Jupyter` (with `papermill` extension)
 * `Docker` 
-* a sprlinke of Python to execute the container
 
-# Set up jupyter "basic lab environment"
+# Steps required:
+### 1. set up jupyter "basic lab environment"
 ```bash
 mkvirtualenv airflow_jupyter --python=python3.6
 pip install jupyter ipython [and whatever else you need]
@@ -26,7 +26,7 @@ jupyter nteract
 **warning** - the name of virtualenv of choice, in this case `airflow_jupyter`, will be used later - because we'd rather not clutter our workstation, we could want to use separate kernels for each task. But in the end, the notebook getting scheduled 
 expects the kernel to actually exists. We will make sure it actually does, by creating it later in the Dockerfile, just before spinning up the notebook.  
 
-#create example notebook
+#### 2. create example notebook
 ```python
 %matplotlib inline
 import pandas as pd
@@ -38,22 +38,23 @@ plt.figure(figsize=(18,10))
 plt.scatter(x, y, c='r')
 plt.show()
 ```
-# add parameters cell
+### 3. add parameters cell
+enable
 ![enable tags](enabletags.png)
 
-and then create parameters cell:
+and then create cell:
 
 ![enable tags](createparameters.png)
 
 
-# run papermill
+### 4. run papermill (no docker yet)
 depending on your catalog structure the command will look approximately like this:
 ```bash
 papermill task_1/code.ipynb task_1/output/code_exectuion_1.ipynb -f task_1/params.yaml
 ```
-
-# wrap up in docker container
-first off, dump and trim requirements txt to task folder as each task should have its own, as tiny as possible, virtual environment
+if all went well proceed to the next step
+### 5. wrap up the notebook in a docker container
+first off, dump a requirements.txt to task folder as each task should have its own, as tiny as possible, virtual environment
 ```python
 pip freeze > requirements.txt
 ```
@@ -61,7 +62,7 @@ Now create a basic `Dockerfile` that spins up `run.sh`(which we will create late
 
 **Note that while `jessie` is not always the best choice of Docker base image taking its size into consideration, the benefit of `alpine` quickly diminishes when using huge libraries like numpy, scipy or pandas.** If you are comfort with Docker and Linux, feel free to use `alpine` as your base image. This will require however, tweaking the Dockerfiles a lot.
 
-Make sure that your name of virtualenv matches in the following file where necessary:
+Make sure that your name of virtualenv matches correctly in the following file:
 ```dockerfile
 FROM python:3.6.8-jessie
 
@@ -87,6 +88,8 @@ COPY run.sh ./notebook/run.sh
 WORKDIR notebook
 ENTRYPOINT ["bash", "./run.sh"]
 ```
+
+### 7. create `params.yaml` and `run.sh`
 now create a little `run.sh` oneliner to run the script: (we might replace `run.sh` to `run.py` at later time, when Airflow will inject into container more params (unique container id, execution id, database or cloud credentials etc.) and more steps will be necessary to ensure proper execution)
 ```bash
 #!/usr/bin/env bash
@@ -99,7 +102,7 @@ input_size: 500
 
 # default parameters, this file should be overwritten by airflow
 ```
-# Running the example
+### 8. run the example
 Build the container:
 
 `docker build . -t task1`
