@@ -61,7 +61,7 @@ services:
       - webserver
     volumes:
       - ./dags:/usr/local/airflow/dags
-      - ./plugins:/usr/local/airflow/plugins
+#      - ./plugins:/usr/local/airflow/plugins
     environment:
       - LOAD_EX=n
       - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=

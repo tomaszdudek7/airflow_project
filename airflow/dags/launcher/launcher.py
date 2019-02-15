@@ -1,7 +1,8 @@
+import logging
 
+log = logging.getLogger(__name__)
 
-def launch_docker_container(image_name, ti_id, variable, **context):
-    print(context['ti'])
-    print(image_name)
-    print(variable)
-    print(ti_id)
+def launch_docker_container(**context):
+    log.info(context['ti'])
+    log.info(context['image_name'])
+    log.info(context['variable'])
