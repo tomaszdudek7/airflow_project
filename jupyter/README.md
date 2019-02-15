@@ -1,19 +1,19 @@
-# partitioning
+# Partitioning
 * **part one** creates the container _(we are in this one right now)_
 * **part two** spins up the airflow and builds DAGs
 * **part three** calls the cloud of choice to execute our tasks
 
 
-# what will get done
+# What will get done
 We will create a **dockered parametrizable Jupyter notebook** that will be later used as baseline for DAGs and scheduled by Apache Airflow. All that while running in the cloud. Woah.
 
-# technologies used
+# Technologies used
 * data science starter pack (`pandas`, `numpy`, `seaborn`)
 * `Jupyter` (with `papermill` extension)
 * `Docker` 
 * a sprlinke of Python to execute the container
 
-# set up jupyter "basic lab environment"
+# Set up jupyter "basic lab environment"
 ```bash
 mkvirtualenv airflow_jupyter --python=python3.6
 pip install jupyter ipython [and whatever else you need]
@@ -57,7 +57,7 @@ first off, dump and trim requirements txt to task folder as each task should hav
 ```python
 pip freeze > requirements.txt
 ```
-now create a basic Dockerfile that spins up `run.sh`(which we will create later)
+Now create a basic `Dockerfile` that spins up `run.sh`(which we will create later)
 
 **Note that while `jessie` is not always the best choice of Docker base image taking its size into consideration, the benefit of `alpine` quickly diminishes when using huge libraries like numpy, scipy or pandas.** If you are comfort with Docker and Linux, feel free to use `alpine` as your base image. This will require however, tweaking the Dockerfiles a lot.
 
@@ -70,7 +70,7 @@ COPY requirements.txt /
 # will be overwriten should `docker run` pass a proper env
 ENV EXECUTION_ID 111111
 
-# they HAVE to match the name of jupyter's kernel
+# match the name of jupyter's kernel where necessary
 RUN pip install virtualenv
 RUN virtualenv -p python3 airflow_jupyter
 RUN /bin/bash -c "source /airflow_jupyter/bin/activate"
@@ -86,4 +86,44 @@ COPY run.sh ./notebook/run.sh
 
 WORKDIR notebook
 ENTRYPOINT ["bash", "./run.sh"]
+```
+now create a little `run.sh` oneliner to run the script: (we might replace `run.sh` to `run.py` at later time, when Airflow will inject into container more params (unique container id, execution id, database or cloud credentials etc.) and more steps will be necessary to ensure proper execution)
+```bash
+#!/usr/bin/env bash
+
+papermill code.ipynb output/code_execution_${EXECUTION_ID}.ipynb -f params.yaml --log-output
+```
+and the `params.yaml` file(which will be mounted and overwritten by Airflow in future)
+```yaml
+input_size: 500
+
+# default parameters, this file should be overwritten by airflow
+```
+# Running the example
+Build the container:
+
+`docker build . -t task1`
+
+and then run it:
+```bash
+>>> docker run -it -e EXECUTION_ID=444444 task1
+    Input Notebook:  code.ipynb
+    Output Notebook: output/code_execution_444444.ipynb
+    Executing notebook with kernel: airflow_jupyter
+    Executing Cell 1---------------------------------------
+    Ending Cell 1------------------------------------------
+    Executing Cell 2---------------------------------------
+    Ending Cell 2------------------------------------------
+    Executing Cell 3---------------------------------------
+    <Figure size 1296x720 with 1 Axes>
+    Ending Cell 3------------------------------------------
+```
+Note that the `EXECUTION_ID` actually got passed in correctly. We can also retrieve the resulting notebook using docker cp:
+```bash
+>>> docker ps -a | grep task1 -m 1 | awk '{print $1}'
+124fad5be5e0
+```
+and then
+```
+>>> docker cp 124fad5be5e0:/notebook/output/code_execution_444444.ipynb ./
 ```
