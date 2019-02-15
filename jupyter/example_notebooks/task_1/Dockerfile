@@ -1,14 +1,16 @@
-FROM python:3.6-alpine
+FROM python:3.6.8-jessie
 
 COPY requirements.txt /
 
-#this will be overwriten should `docker run` pass a proper env
+# will be overwriten should `docker run` pass a proper env
 ENV EXECUTION_ID 111111
 
-RUN apk add build-base
-RUN apk --no-cache --update-cache add gfortran python-dev py-pip build-base wget freetype-dev libpng-dev openblas-dev
-
+# they HAVE to match the name of jupyter's kernel
+RUN pip install virtualenv
+RUN virtualenv -p python3 airflow_jupyter
+RUN /bin/bash -c "source /airflow_jupyter/bin/activate"
 RUN pip install -r /requirements.txt
+RUN ipython kernel install --user --name=airflow_jupyter
 
 RUN mkdir notebook
 RUN mkdir notebook/output
