@@ -241,12 +241,13 @@ this looks like this on UI:
 you can also notice that docker logs are properly read while the container is running. Click on the `do_task_two` and then choose `View logs`:
 ![logs](logs.png)
 
-Neat! This is just the beginning though. We have to retrieve results from the containers and pass them along. To do so, lets first create another `task3` that expects an input from downstream `task2`.
+Neat! This is just the beginning though. (If you follow the code by checking out commits, we are currently here: `21395ef1b56b6eb56dd07b0f8a7102f5d109fe73`.)
+ 
+Now, we would like to be able to retrieve results(not only the `.ipynb` but also `.json` containing arbitrary data required for next tasks) from the containers and pass them along.
 
 To do so, we will now:
-* rewrite task2 to produce an arbitrary random value(e.g. sleeping time of another task)
+* rewrite task2 to produce a random value(e.g. sleeping time)
 * rewrite `launcher.py` to copy the result from inside the container and pass it to another task using Airflow's xcoms
 * dynamically create `params.yaml` based on task's result
 * rewrite `Dockerfile` and `run.sh` in `/jupyter/` to allow `Airflow` to overwrite `params.yaml` and pass execution_id along
-
-If you follow the code, we are currently at the commit `21395ef1b56b6eb56dd07b0f8a7102f5d109fe73`.
+* rewrite task3 to read task2's value and use it in its own computation
