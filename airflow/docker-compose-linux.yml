@@ -82,15 +82,8 @@ services:
     volumes:
       - ./dags:/usr/local/airflow/dags
       - ./requirements.txt:/requirements.txt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - DOCKER_HOST=tcp://socat:2375
       - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
       - EXECUTOR=Celery
     command: worker
-  socat:
-    image: bpack/socat
-    command: TCP4-LISTEN:2375,fork,reuseaddr UNIX-CONNECT:/var/run/docker.sock
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    expose:
-      - "2375"

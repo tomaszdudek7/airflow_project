@@ -155,25 +155,32 @@ DAG should run just fine on most `Linux` distros and hit permission denied on `m
 PermissionError: [Errno 13] Permission denied
 ```
 
-there are various solutions to that, but none(as of feb 2019) is particulary good. you could of course `sudo chmod 777 /var/run/docker.sock` but its a **huge security concern** and should never be done on production environment. well, even on your own workstation it is pretty bad idea, so we will do slightly different thing by:
+there are various solutions to that. You could of course `sudo chmod 777 /var/run/docker.sock` but its a **huge security concern** and should never be done on production environment. well, even on your own workstation it is pretty bad idea, so we will do slightly different thing by:
 
-* first modify `Dockerfile`: 
-```Dockerfile
-FROM puckel/docker-airflow:1.10.2
+We will use pretty neat solution by mingheng posted [here](https://medium.com/@mingheng/solving-permission-denied-while-trying-to-connect-to-docker-daemon-socket-from-container-in-mac-os-600c457f1276).
 
-USER root
 
-## linux
-#RUN groupadd --gid 999 docker \
-#    && usermod -aG docker airflow
-
-# macOS
-RUN gpasswd -a airflow staff
-
-USER airflow
+To get it to working we have to modify docker-compose.yml in worker section and add a socat:
+```yaml
+  worker:
+    image: puckel-airflow-with-docker-inside:latest
+    restart: always
+    depends_on:
+      - scheduler
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+      - ./requirements.txt:/requirements.txt
+    environment:
+      - DOCKER_HOST=tcp://socat:2375
+      - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - EXECUTOR=Celery
+    command: worker
+  socat:
+    image: bpack/socat
+    command: TCP4-LISTEN:2375,fork,reuseaddr UNIX-CONNECT:/var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    expose:
+      - "2375"
 ```
-as it happens `docker` command on macOS host is allowed in group `staff`. then in `sudo visudo` add line 
-``` 
-%staff          ALL = (ALL) ALL
-```
-now run `sudo docker-compose up` and trigger the DAG.
+after that all should work well!
