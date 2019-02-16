@@ -6,10 +6,8 @@
 # Flow
 We will be using Docker Apache Airflow version.
 
-First, download the image:
-```
-docker pull puckel/docker-airflow
-```
+First, download the docker-compose-CeleryExecutor.yml from here https://github.com/puckel/docker-airflow and rename it to `docker-compose.yml`
+
 then create separate virtualenv (which will be used to develop DAGs)
 ```bash
 mkvirtualenv airflow_dag
@@ -242,4 +240,5 @@ To do so, we will now:
 * rewrite task2 to produce an arbitrary random value(e.g. sleeping time of another task)
 * rewrite `launcher.py` to copy the result from inside the container and pass it to another task using Airflow's xcoms
 * dynamically create `params.yaml` based on task's result
-* rewrite `Dockerfile` and `run.sh` in `/jupyter/` to allow `Airflow` to overwrite `params.yaml`
+* rewrite `Dockerfile` and `run.sh` in `/jupyter/` to allow `Airflow` to overwrite `params.yaml` and pass execution_id along
+

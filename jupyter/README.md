@@ -60,7 +60,7 @@ pip freeze > requirements.txt
 ```
 Now create a basic `Dockerfile` that spins up `run.sh`(which we will create later)
 
-**Note that while `jessie` is not always the best choice of Docker base image taking its size into consideration, the benefit of `alpine` quickly diminishes when using huge libraries like numpy, scipy or pandas.** If you are comfort with Docker and Linux, feel free to use `alpine` as your base image. This will require however, tweaking the Dockerfiles a lot.
+**Note that while `jessie` is not always the best choice of Docker base image taking its size into consideration, the benefit of `alpine` quickly diminishes when using huge libraries like numpy, scipy or pandas.** If you are comfortable with Docker and Linux, feel free to use `alpine` as your base image. This will require however, tweaking the Dockerfiles a lot.
 
 Make sure that your name of virtualenv matches correctly in the following file:
 ```dockerfile
@@ -132,5 +132,5 @@ and then
 ```
 
 # But what we have done?
-Well, now _somebody else_(another system, that is) can run our task with little dependencies(only docker) and knowledge about what the task actually does. It is a huge deal, as will be shown in the second part.
+Well, now _somebody else_(another system, that is) can run our task with little dependencies and knowledge about what the task actually does. It is a huge deal, as will be shown in the second part.
 
