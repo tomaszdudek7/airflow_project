@@ -85,7 +85,7 @@ with DAG('pipeline_python_2', default_args=default_args) as dag:
 
     t1 >> [t2_1, t2_2] >> t3
 ```
-and go to http://localhost:8080/admin/ and trigger it. Should all go well the DAG(pretty dumb) will be ran.
+and go to http://localhost:8080/admin/ and trigger it. Should all go well the DAG(pretty dumb) will be ran. We have also shown how one should pass results between dependant tasks(xcom push/pull mechanism). This will be useful later on but lets leave it for now.
 
 ## Moving on
 Our scheduling system is ready, our tasks however, are not. Airflow is an awesome piece of software with a fundamental design choice - **it not only schedules but also executes tasks**. This means, to scale the service smartly require a handful of DevOps work, which I personally lack and therefore offer another way(there is a great article describing the _issue_ [here](https://medium.com/bluecore-engineering/were-all-using-airflow-wrong-and-how-to-fix-it-a56f14cb0753)).
@@ -234,7 +234,14 @@ ab8933be5475        bpack/socat                                "socat TCP4-LISTE
 5ef6461c5339        redis:3.2.7                                "docker-entrypoint.s…"   About an hour ago   Up 44 seconds             6379/tcp                                     airflow_redis_1
 485c9daa38a8        postgres:9.6                               "docker-entrypoint.s…"   About an hour ago   Up 44 seconds             5432/tcp                                     airflow_postgres_1
 ```
-This is just the beginning though. We have to retrieve results from the containers and pass them along. To do so, lets first create another `task3` that expects an input from downstream `task2`.
+
+this looks like this on UI:
+![ui](ui.png)
+
+you can also notice that docker logs are properly read while the container is running. Click on the `do_task_two` and then choose `View logs`:
+![logs](logs.png)
+
+Neat! This is just the beginning though. We have to retrieve results from the containers and pass them along. To do so, lets first create another `task3` that expects an input from downstream `task2`.
 
 To do so, we will now:
 * rewrite task2 to produce an arbitrary random value(e.g. sleeping time of another task)
