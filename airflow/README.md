@@ -99,7 +99,7 @@ Firstly, lets make Airflow to be able to use `docker` command(as a result worker
 
 We have to tweak the puckel/airflow image so that inside, user `airflow` has full permission to use `docker` command. Create `Dockerfile` extending base image with following lines and then build it:
 
-**make sure that `--gid 999` matches id of host's docker group. if you are on macOS(which has no groups), please proceed further as you inevitably will hit a wall soon. we will handle it though**
+**Ensure that `--gid 999` matches id of host's docker group. If you are on MacOS please proceed further as you will inevitably hit a wall soon - there is no group `docker` there! We will handle it differently though**
 ```Dockerfile
 FROM puckel/docker-airflow:1.10.2
 
@@ -109,9 +109,9 @@ RUN groupadd --gid 999 docker \
 USER airflow
 ```
 then
-`docker build . -t puckel/airflow-with-docker-inside:1.10.2`
+`docker build . -t puckel-airflow-with-docker-inside`
 and lastly in `docker-compose`:
-* replace `puckel/docker-airflow:1.10.2` with `puckel/airflow-with-docker-inside:1.10.2`
+* replace `puckel/docker-airflow:1.10.2` with `puckel-airflow-with-docker-inside:latest`
 * mount requirements.txt with `docker-py` library
 * mount docker sockets(just for the worker)
 ```
@@ -142,7 +142,7 @@ to the DAG, before t1 and t2:
 ```
 run the docker-compose once again and trigger the DAG.
 
-DAG should run just fine on most `Linux` distros and hit permission denied on `macOS`:
+It should run just fine on most `Linux` distros(view its logs to see list all your docker images) and hit permission denied on `macOS`:
 ```python
     # logs of test_docker task
     # ...
@@ -183,9 +183,9 @@ To get it to working we have to modify docker-compose.yml in worker section and 
 ```
 after that all should work well! 
 
-<create another task and call it task2>
+In the meantime, create another task in `/jupyter/task_2` directory, this time let it just sleep 20 seconds. Build the image with tag 'task2'.
 
-now, rewrite `launcher.py` to actually run the containers:
+Lastly rewrite `launcher.py` to actually run the containers:
 ```python
 import logging
 import docker
