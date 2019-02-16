@@ -44,7 +44,7 @@ with DAG('pipeline_python_2', default_args=default_args) as dag:
         python_callable=launch_docker_container
     )
 
-    t2_2_id = 'do_task_two'
+    t2_2_id = 'generate_data_for_next_task'
     t2_2 = PythonOperator(
         task_id=t2_2_id,
         provide_context=True,
@@ -55,13 +55,26 @@ with DAG('pipeline_python_2', default_args=default_args) as dag:
         python_callable=launch_docker_container
     )
 
-    t3 = PythonOperator(
+    t2_3_id = 'i_require_data_from_previous_task'
+    t2_3 = PythonOperator(
+        task_id=t2_3_id,
+        provide_context=True,
+        op_kwargs={
+            'image_name': 'task3',
+            'my_id': t2_3_id
+        },
+        python_callable=launch_docker_container
+    )
+
+
+    t4 = PythonOperator(
         task_id='read_xcoms',
         provide_context=True,
         python_callable=read_xcoms,
         op_kwargs={
-            'data_to_read': [t2_1_id, t2_2_id]
+            'data_to_read': [t2_1_id, t2_2_id, t2_3_id]
         }
     )
 
-    t1 >> t1_5 >> [t2_1, t2_2] >> t3
+    t2_2 >> t2_3
+    t1 >> t1_5 >> [t2_1, t2_2] >> t4

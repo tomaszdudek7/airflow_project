@@ -12,6 +12,8 @@ RUN /bin/bash -c "source /airflow_jupyter/bin/activate"
 RUN pip install -r /requirements.txt
 RUN ipython kernel install --user --name=airflow_jupyter
 
+RUN touch /tmp/result
+
 RUN mkdir notebook
 RUN mkdir notebook/output
 

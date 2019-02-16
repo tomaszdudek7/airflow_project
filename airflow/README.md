@@ -246,8 +246,36 @@ Neat! This is just the beginning though. (If you follow the code by checking out
 Now, we would like to be able to retrieve results(not only the `.ipynb` but also `.json` containing arbitrary data required for next tasks) from the containers and pass them along.
 
 To do so, we will now:
-* rewrite task2 to produce a random value(e.g. sleeping time)
+* rewrite task2 to produce a random value(e.g. sleeping time) and save it as json somewhere
 * rewrite `launcher.py` to copy the result from inside the container and pass it to another task using Airflow's xcoms
 * dynamically create `params.yaml` based on task's result
 * rewrite `Dockerfile` and `run.sh` in `/jupyter/` to allow `Airflow` to overwrite `params.yaml` and pass execution_id along
 * rewrite task3 to read task2's value and use it in its own computation
+
+#### Rewriting `task2`
+fairly simple, `code.ipynb` should contain one cell:
+```python
+import random
+import json
+
+value = random.randint(10,20)
+print(f'I have drawn {value} seconds for the next task!')
+
+def save_result(result_dictionary):
+    print('Saving result to /tmp/result.')
+    result_json = json.dumps(result)
+    with open('/tmp/result', 'w') as file:
+        file.write(result_json)
+    print('Successfully saved.')
+    
+result = {
+    'sleeping_time': value
+}
+
+save_result(result)
+```
+**Save result method should be transformed into tiny library** later, so that each task behaves the same way. We will write to container's /tmp/result and perform `docker cp` from Airflow to retrieve this result. Another way would be saving the json to `s3`(passing AWS credentials to the container) and have Airflow read from s3 instead. Or using a database of choice.
+
+To each `Dockerfile` add tiny line `RUN touch /tmp/result` so that file is always there. Rebuild each container to reflect the change.
+
+#### Rewriting `launcher.py`
