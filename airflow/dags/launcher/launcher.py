@@ -5,10 +5,25 @@ import json
 import os
 import tempfile
 
+from airflow.models import TaskInstance
 from docker import Client
 from docker.errors import NotFound
 
 log = logging.getLogger(__name__)
+
+
+def combine_xcom_values(xcoms):
+    if xcoms is None or xcoms == [] or xcoms == ():
+        return {}
+    elif len(xcoms) == 1:
+        return dict(xcoms)
+
+    result = {}
+    egible_xcoms = (d for d in xcoms if d is not None and len(d) > 0)
+    for d in egible_xcoms:
+        for k, v in d.items():
+            result[k] = v
+    return result
 
 
 def untar_file_and_get_result_json(client, container):
@@ -33,12 +48,28 @@ def untar_file_and_get_result_json(client, container):
             return result
 
 
+def pull_all_parent_xcoms(context):
+    ti: TaskInstance = context['task_instance']
+
+    parent_ids = [] #todo
+
+    xcoms = ti.xcom_pull(task_ids=parent_ids)
+    combined_xcoms = combine_xcom_values(xcoms)
+
+
 def launch_docker_container(**context):
     image_name = context['image_name']
     client: Client = docker.from_env()
 
     log.info(f"Creating image {image_name}")
-    container = client.create_container(image=image_name)
+
+    execution_id = context['dag_run'].run_id
+    environment = {
+        'EXECUTION_ID': execution_id
+    }
+
+
+    container = client.create_container(image=image_name, environment=environment)
 
     container_id = container.get('Id')
     log.info(f"Running container with id {container_id}")

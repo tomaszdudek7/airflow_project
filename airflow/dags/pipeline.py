@@ -77,4 +77,4 @@ with DAG('pipeline_python_2', default_args=default_args) as dag:
     )
 
     t2_2 >> t2_3
-    t1 >> t1_5 >> [t2_1, t2_2] >> t4
+    t1 >> t1_5 >> [t2_1, t2_3] >> t4
