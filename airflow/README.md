@@ -95,4 +95,85 @@ Our scheduling system is ready, our tasks however, are not. Airflow is an awesom
 Airflow will serve us merely as scheduler. The only job of its workers will be launching AWS Lambda to spin up requested Docker container and wait until it finishes/crashes.
 
 ## rewrite `launch_docker_container`
-todo
+We will do it step by step
+
+Firstly, lets make Airflow to be able to use `docker` command(as a result workers, dockerized themselves, will launch docker containers on the airflow-host machine - in this case on the same OS running the Airflow).
+
+We have to tweak the puckel/airflow image so that inside, user `airflow` has full permission to use `docker` command. Create `Dockerfile` extending base image with following lines and then build it:
+
+**make sure that `--gid 999` matches id of host's docker group. if you are on macOS(which has no groups), please proceed further as you inevitably will hit a wall soon. we will handle it though**
+```Dockerfile
+FROM puckel/docker-airflow:1.10.2
+
+USER root
+RUN groupadd --gid 999 docker \
+    && usermod -aG docker airflow
+USER airflow
+```
+then
+`docker build . -t puckel/airflow-with-docker-inside:1.10.2`
+and lastly in `docker-compose`:
+* replace `puckel/docker-airflow:1.10.2` with `puckel/airflow-with-docker-inside:1.10.2`
+* mount requirements.txt with `docker-py` library
+* mount docker sockets(just for the worker)
+```
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+```
+
+and add basic task to test `docker` capabilities:
+```python
+import logging
+import docker
+
+
+def do_test_docker():
+    client = docker.from_env()
+    for image in client.images().list():
+        logging.info(str(image))
+```
+to the DAG, before t1 and t2:
+```python
+    t1_5 = PythonOperator(
+        task_id="test_docker",
+        python_callable=do_test_docker
+    )
+    
+    # ...
+    
+    t1 >> t1_5 >> [t2_1, t2_2] >> t3
+```
+run the docker-compose once again and trigger the DAG.
+
+DAG should run just fine on most `Linux` distros and hit permission denied on `macOS`:
+```python
+    # logs of test_docker task
+    # ...
+  File "/usr/local/lib/python3.6/http/client.py", line 964, in send
+    self.connect()
+  File "/usr/local/airflow/.local/lib/python3.6/site-packages/docker/transport/unixconn.py", line 33, in connect
+    sock.connect(self.unix_socket)
+PermissionError: [Errno 13] Permission denied
+```
+
+there are various solutions to that, but none(as of feb 2019) is particulary good. you could of course `sudo chmod 777 /var/run/docker.sock` but its a **huge security concern** and should never be done on production environment. well, even on your own workstation it is pretty bad idea, so we will do slightly different thing by:
+
+* first modify `Dockerfile`: 
+```Dockerfile
+FROM puckel/docker-airflow:1.10.2
+
+USER root
+
+## linux
+#RUN groupadd --gid 999 docker \
+#    && usermod -aG docker airflow
+
+# macOS
+RUN gpasswd -a airflow staff
+
+USER airflow
+```
+as it happens `docker` command on macOS host is allowed in group `staff`. then in `sudo visudo` add line 
+``` 
+%staff          ALL = (ALL) ALL
+```
+now run `sudo docker-compose up` and trigger the DAG.
