@@ -183,4 +183,63 @@ To get it to working we have to modify docker-compose.yml in worker section and 
     expose:
       - "2375"
 ```
-after that all should work well!
+after that all should work well! 
+
+<create another task and call it task2>
+
+now, rewrite `launcher.py` to actually run the containers:
+```python
+import logging
+import docker
+
+from docker import Client
+
+log = logging.getLogger(__name__)
+
+
+def launch_docker_container(**context):
+    image_name = context['image_name']
+    client: Client = docker.from_env()
+
+    log.info(f"Creating image {image_name}")
+    container = client.create_container(image=image_name)
+
+    container_id = container.get('Id')
+    log.info(f"Running container with id {container_id}")
+    client.start(container=container_id)
+
+    logs = client.logs(container_id, follow=True, stderr=True, stdout=True, stream=True, tail='all')
+
+    try:
+        while True:
+            l = next(logs)
+            log.info(f"Task log: {l}")
+    except StopIteration:
+        pass
+
+    log.info(f"Task ends!")
+    my_id = context['my_id']
+    context['task_instance'].xcom_push('data', f'my name is {my_id}', context['execution_date'])
+```
+if you run the dag now and wait until `do_task_one` and `do_task_two` execute, you can use `docker ps` to see the docker containers actually getting launched:
+
+```bash
+>>> docker ps
+CONTAINER ID        IMAGE                                      COMMAND                  CREATED             STATUS                    PORTS                                        NAMES
+1f32184b7654        task2                                      "bash ./run.sh"          9 seconds ago       Up 7 seconds                                                           stupefied_spence
+ca94092f3c4f        task1                                      "bash ./run.sh"          9 seconds ago       Up 7 seconds                                                           upbeat_jennings
+4dfd42a0d11d        puckel-airflow-with-docker-inside:latest   "/entrypoint.sh work…"   About an hour ago   Up 41 seconds             5555/tcp, 8080/tcp, 8793/tcp                 airflow_worker_1
+d49781393043        puckel-airflow-with-docker-inside:latest   "/entrypoint.sh sche…"   About an hour ago   Up 42 seconds             5555/tcp, 8080/tcp, 8793/tcp                 airflow_scheduler_1
+872b96a96b7d        puckel-airflow-with-docker-inside:latest   "/entrypoint.sh webs…"   About an hour ago   Up 43 seconds (healthy)   5555/tcp, 8793/tcp, 0.0.0.0:8080->8080/tcp   airflow_webserver_1
+ef595fd952cf        puckel-airflow-with-docker-inside:latest   "/entrypoint.sh flow…"   About an hour ago   Up 43 seconds             8080/tcp, 0.0.0.0:5555->5555/tcp, 8793/tcp   airflow_flower_1
+ab8933be5475        bpack/socat                                "socat TCP4-LISTEN:2…"   About an hour ago   Up 44 seconds             2375/tcp                                     airflow_socat_1
+5ef6461c5339        redis:3.2.7                                "docker-entrypoint.s…"   About an hour ago   Up 44 seconds             6379/tcp                                     airflow_redis_1
+485c9daa38a8        postgres:9.6                               "docker-entrypoint.s…"   About an hour ago   Up 44 seconds             5432/tcp                                     airflow_postgres_1
+```
+This is just the beginning though. We have to retrieve results from the containers and pass them along. To do so, lets first create another `task3` that expects an input from downstream `task2`.
+
+To do so, we will now:
+* rewrite task2 to produce an arbitrary random value(e.g. sleeping time of another task)
+* rewrite `launcher.py` to copy the result from inside the container and pass it to another task using Airflow's xcoms
+* dynamically create `params.yaml` based on task's result
+* rewrite `Dockerfile` and `run.sh` in `/jupyter/` to allow `Airflow` to overwrite `params.yaml`
