@@ -242,3 +242,4 @@ To do so, we will now:
 * dynamically create `params.yaml` based on task's result
 * rewrite `Dockerfile` and `run.sh` in `/jupyter/` to allow `Airflow` to overwrite `params.yaml` and pass execution_id along
 
+If you follow the code, we are currently at the commit `21395ef1b56b6eb56dd07b0f8a7102f5d109fe73`.
