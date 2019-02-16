@@ -1,0 +1,3 @@
+input_size: 500
+
+# default parameters, this file should be overwritten by airflow
