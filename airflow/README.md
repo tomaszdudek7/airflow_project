@@ -257,15 +257,22 @@ fairly simple, `code.ipynb` should contain one cell:
 ```python
 import random
 import json
+import tarfile
+import os 
 
 value = random.randint(10,20)
 print(f'I have drawn {value} seconds for the next task!')
 
 def save_result(result_dictionary):
-    print('Saving result to /tmp/result.')
+    print('Saving result to /tmp/result.json')
     result_json = json.dumps(result)
-    with open('/tmp/result', 'w') as file:
+    with open('/tmp/result.json', 'w') as file:
         file.write(result_json)
+        
+    with tarfile.open('/tmp/result.tgz', "w:gz") as tar:
+        abs_path = os.path.abspath('/tmp/result.json')
+        tar.add(abs_path, arcname=os.path.basename('/tmp/result.json'), recursive=False)
+        
     print('Successfully saved.')
     
 result = {
@@ -276,6 +283,54 @@ save_result(result)
 ```
 **Save result method should be transformed into tiny library** later, so that each task behaves the same way. We will write to container's /tmp/result and perform `docker cp` from Airflow to retrieve this result. Another way would be saving the json to `s3`(passing AWS credentials to the container) and have Airflow read from s3 instead. Or using a database of choice.
 
-To each `Dockerfile` add tiny line `RUN touch /tmp/result` so that file is always there. Rebuild each container to reflect the change.
 
 #### Rewriting `launcher.py`
+we will use Docker's get_archive API method
+
+first, create method for untaring and
+```python
+import logging
+import tarfile
+import json
+import os
+import tempfile
+
+from docker.errors import NotFound
+
+log = logging.getLogger(__name__)
+
+
+def untar_file_and_get_result_json(client, container):
+    try:
+        tar_data_stream, stat = client.get_archive(container=container, path='/tmp/result.tgz')
+    except NotFound:
+        return dict()
+
+    with tempfile.NamedTemporaryFile() as tmp:
+        for chunk in tar_data_stream.stream():
+            tmp.write(chunk)
+        tmp.seek(0)
+        with tarfile.open(mode='r', fileobj=tmp) as tar:
+            tar.extractall()
+            tar.close()
+
+    with tarfile.open('result.tgz') as tf:
+        for member in tf.getmembers():
+            f = tf.extractfile(member)
+            result = json.loads(f.read())
+            os.remove('result.tgz')
+            return result
+```
+(it was quite unclear for me how to do all that untaring correctly, feel free how the proper method should look like because I am sure there's something absurdly wrong in code above. but it works for now.)
+
+and then use it in `launch_docker_container` method:
+```python
+    result = untar_file_and_get_result_json(client, container)
+    log.info(f"Result was {result}")
+```
+
+#### extending PythonOperator to automatically push and pull xcom results
+
+#### tweaking `Dockerfile` and `launcher.py` to create `params.yaml` and mounting it each time
+
+#### changing task3 to use task2's params
