@@ -831,7 +831,7 @@ rebuild image and run the DAG:
 We have also overwritten internal `papermill` logging so that Docker and Airflow are able to read them, and you as an user can browse them freely in task's log:
 ![papermill_logger](papermilllogger.png)
 
-## 3. Create a "buildscript" in `./infrastracture`
+## 3. Create a "buildscript"
 The last piece missing is a "buildscript". You could of course use anything here, even `Ansible` or `Puppet`. Instead of scratching a `.sh` file we will use pure python.
 
 First:

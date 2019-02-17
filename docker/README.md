@@ -1,0 +1,1 @@
+use /infrastracture/build_images.py to build them
