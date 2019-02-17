@@ -841,7 +841,7 @@ rebuild image and run the DAG:
 We have also overwritten internal `papermill` logging so that Docker and Airflow are able to read them, and you as an user can browse them freely in task's log:
 ![papermill_logger](papermilllogger.png)
 
-## 3. Create a "buildscript"
+# Part three - Create a "buildscript"
 The last piece missing is a "buildscript". You could of course use anything here, even `Ansible` or `Puppet`. Instead of scratching a `.sh` file we will use pure python.
 
 First:
@@ -851,6 +851,233 @@ First:
 Then our script will:
 * iterate over all the tasks and append `PapermillRunner` and `ResultsSaver` where necessary (**please note you can also use pypi instead and just install it from requirements.txt**)
 * build each image
+
+## 1. make separate libraries for PapermillRunner and Results saver:
+move their implementations to proper __init__.py
+![libs](libs.png)
+setup.py:
+```python
+from setuptools import setup
+
+setup(name='result_saver',
+      version='0.1',
+      packages=['result_saver'],
+      install_requires=[],
+      zip_safe=False)
+```
+`__init__.py`
+```python
+import json
+import tarfile
+import os
+import sys
+import logging
+
+
+class ResultSaver:
+
+    def __init__(self):
+        self._add_stdout()
+        self.log = logging.getLogger("result_saver")
+
+    def _add_stdout(self):
+        root = logging.getLogger()
+        root.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(message)s')
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+
+    def save_result(self, result_dictionary):
+        self.log.info('Saving result to /tmp/result.json')
+        result_json = json.dumps(result_dictionary)
+        with open('/tmp/result.json', 'w') as file:
+            file.write(result_json)
+
+        with tarfile.open('/tmp/result.tgz', "w:gz") as tar:
+            abs_path = os.path.abspath('/tmp/result.json')
+            tar.add(abs_path, arcname=os.path.basename('/tmp/result.json'), recursive=False)
+        self.log.info('Successfully saved tgz file.')
+```
+
+do the same for PapermillRunner.
+
+then modify all tasks' `Dockerfile`s:
+```dockerfile
+FROM python:3.6.8-jessie
+
+COPY requirements.txt /
+
+# will be overwriten should `docker run` pass a proper env
+ENV EXECUTION_ID 111111
+
+# they HAVE to match the name of jupyter's kernel
+RUN pip install virtualenv
+RUN virtualenv -p python3 airflow_jupyter
+RUN /bin/bash -c "source /airflow_jupyter/bin/activate"
+RUN pip install -r /requirements.txt
+
+############### this will be provided build-time by the script, don't build it yourself
+COPY result_saver /tmp/result_saver
+RUN cd /tmp/result_saver && pip install . && cd / && rm -rf /tmp/result_saver
+##############
+
+RUN ipython kernel install --user --name=airflow_jupyter
+
+############## this will be provided build-time by the script, don't build it yourself
+COPY papermill_runner /tmp/papermill_runner
+RUN cd /tmp/papermill_runner && pip install . && cd / && rm -rf /tmp/papermill_runner
+##############
+
+RUN mkdir notebook
+RUN mkdir notebook/output
+
+COPY code.ipynb ./notebook/code.ipynb
+COPY params.yaml ./notebook/params.yaml
+
+WORKDIR notebook
+ENTRYPOINT ["python", "-c", "from papermill_runner import PapermillRunner;PapermillRunner().run()"]
+```
+You may also remove `run.py` as they are no longer required. Do 
+
+and finally at top level create `build_images.py`:
+```python
+from json import JSONDecodeError
+from typing import List
+
+import docker
+import argparse
+import logging
+import sys
+import os.path
+import json
+
+import shutil, errno
+
+LIBRARIES_TO_COPY = ['papermill_runner', 'result_saver']
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-t", "--task", dest="taskname",
+                    help="If you wish to build only specific task, specify its catalog name", required=False)
+
+parser.add_argument("-l", "--loud", help="Log docker build process.", action='store_true', default=False)
+
+class ImagesBuilder:
+
+    def __init__(self, parser):
+        self.args = parser.parse_args()
+        self.loud = self.args.loud
+        self.log = self.configure_and_get_logger()
+        self.docker = docker.from_env()
+
+    def build_images(self):
+        directories = self.get_directories_to_browse()
+        self.log.info(f"Browsing {directories}")
+        for directory in directories:
+            self.build_task(directory)
+
+    def build_task(self, directory_name):
+        self.log.info(f"Handling {directory_name}")
+        try:
+            self.copy_libraries(directory_name)
+            self.log.info("Building image. (run script with -l to see docker logs)")
+            build_logs = self.docker.build(path=f'./docker/{directory_name}', tag=directory_name, rm=True)
+
+            while True:
+                try:
+                    output = self.parse_output(next(build_logs))
+                    if self.loud:
+                        self.log.info(output)
+                except StopIteration:
+                    self.log.info("Image built.")
+                    break
+        finally:
+            self.remove_libraries(directory_name)
+
+    def parse_output(self, raw) -> str:
+        output = raw.decode('ascii').strip('\r\n')
+        try:
+            json_output = json.loads(output)
+            if 'stream' in json_output:
+                return json_output['stream'].strip('\n')
+        except JSONDecodeError:
+            return raw
+        return raw
+
+    def copy_libraries(self, directory_name):
+        for library in LIBRARIES_TO_COPY:
+            src = f'./python/libraries/{library}'
+            dest = f'./docker/{directory_name}/{library}'
+            self.log.info(f"Copying {src} to {dest}")
+            self.copy_dirs(src, dest)
+
+    def remove_libraries(self, directory_name):
+        self.log.info("Cleaning up.")
+        for library in LIBRARIES_TO_COPY:
+            dest = f'./docker/{directory_name}/{library}'
+            self.log.info(f"Removing {dest}")
+            shutil.rmtree(dest)
+
+    def get_directories_to_browse(self) -> List[str]:
+        taskname = self.args.taskname
+        if taskname is not None:
+            self.log.info(f"Taskname specified as {taskname}. Will build only that docker image.")
+            path = f"./docker/{taskname}"
+            if not os.path.isdir(path):
+                raise Exception(f'''Directory /docker/{taskname} does not exists.''')
+            return [path]
+        else:
+            self.log.info(f"No particular task name specified. Will build every image in /docker/.")
+            return [x for x in os.listdir('./docker') if not x.startswith('.') and os.path.isdir(f'./docker/{x}')]
+
+    def copy_dirs(self, src, dst):
+        try:
+            shutil.copytree(src, dst)
+        except OSError as exc:
+            if exc.errno == errno.ENOTDIR:
+                shutil.copy(src, dst)
+            else:
+                raise
+
+    def configure_and_get_logger(self) -> logging.Logger:
+        root = logging.getLogger()
+        root.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+        return logging.getLogger("build_images")
+
+
+ImagesBuilder(parser).build_images()
+```
+
+this allows us to:
+* `python build_images.py` to build every task in /docker/ catalog
+* `python build_image.py -t task1` build specific task
+* `python build_image.py -l` to browse docker logs as well 
+
+Finally modify all notebooks to use our `ResultSaver` (you propably have to switch venv to `airflow_jupyter`, `cd` into `result_saver` catalog and run `pip install .` for it to work), for example:
+```python
+import random
+import logging
+from result_saver import ResultSaver
+
+log = logging.getLogger("jupyter_code")
+
+value = random.randint(10,20)
+log.info(f'I have drawn {value} seconds for the next task!')
+result = {
+    'sleeping_time': value
+}
+
+ResultSaver().save_result(result)
+```
+then run `python build_images.py` and trigger the final DAG. If all went well we are done.
+
+
 
 # What has not been done/shown:
 * copying back the `papermill`'s output notebook (fairly simple to do, after that you might want to save it e.g. in S3)
