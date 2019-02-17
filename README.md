@@ -18,7 +18,9 @@ TL;DR of those articles is basically: _Do you have workflows doing _stuff_? If y
 
 ![airflow2](airflow_2.png)
 
-If you are looking for the scaffold just dive in there: https://github.com/spaszek/airflow_project as this article is quite lengthy and describes the process throughly. We will start really simple and refactor our code a lot. 
+If you are looking for the scaffold just dive in there: https://github.com/spaszek/airflow_project 
+
+This article is quite lengthy and describes the process throughly. It was written constantly while developing and is more of a _diary_. We will start really simple and refactor our code a lot. 
 
 Oh, most of the inspiration comes from this [great article by Netflix](https://medium.com/netflix-techblog/scheduling-notebooks-348e6c14cfd6). I have yet to see it example-implemented anywhere so I did it myself.
 
@@ -854,8 +856,10 @@ Then our script will:
 
 ## 1. make separate libraries for PapermillRunner and Results saver:
 move their implementations to proper __init__.py
+
 ![libs](libs.png)
-setup.py:
+
+`setup.py`:
 ```python
 from setuptools import setup
 
@@ -939,9 +943,9 @@ COPY params.yaml ./notebook/params.yaml
 WORKDIR notebook
 ENTRYPOINT ["python", "-c", "from papermill_runner import PapermillRunner;PapermillRunner().run()"]
 ```
-You may also remove `run.py` as they are no longer required. Do 
+You may also remove `run.py` as they are no longer required.
 
-and finally at top level create `build_images.py`:
+Finally, at the top level of our project, create `build_images.py`:
 ```python
 from json import JSONDecodeError
 from typing import List
@@ -1075,14 +1079,22 @@ result = {
 
 ResultSaver().save_result(result)
 ```
-then run `python build_images.py` and trigger the final DAG. If all went well we are done.
+then run `python build_images.py` and trigger the final DAG. If all went well we are done (and at commit `b95c17bd38bc394b9f6f8dfb3c2e68f597ef57d6`).
 
+# Summary of current state:
+* our DAG looks quite like this:
+![dag](result.png)
+* all those blocks can be ran as separate, isolated `Docker` containers (Airflow is not a true worker anymore!) 
+* we are able to pass json data from inside the containers for dependent tasks
+* each task reads all his parents json data automatically
+* `build_images.py` can traverse `/docker/` directory and for each subdirectory build a docker image(and provides it our custom made python libraries)
 
-
-# What has not been done/shown:
+# What has not been done/shown or is done poorly:
+* container logging could use some work, as binary strings provided by `docker-py` are not the prettiest
 * copying back the `papermill`'s output notebook (fairly simple to do, after that you might want to save it e.g. in S3)
 * running container with Scala or R(also simple, just make sure to follow the same convention of saving result with result.tgz and reading args/yaml)
 * passing credentials to the container (use Airflow's Variables or Connections mechanism)
+* how to build more complicated DAGs(but it was never the goal of this tutorial)
 * versioning the docker images (why not use Airflow's Variable mechanism so that `ContainerLauncher` fetches the current version, and in the meantime `buildscript` asks which version should he build?)
 * actual scaling (to do so you can either use `docker-swarm` or rewrite `ContainerLauncher` to launch the tasks in the cloud, for example AWS Lambda launching AWS Batch job and then polling the result will do the trick)
 * deployment (with docker-compose that should be fairly easy, you might have to add docker images pushing/pulling when building/launching respectively and use Docker Registry)
