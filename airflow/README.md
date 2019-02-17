@@ -330,10 +330,133 @@ and then use it in `launch_docker_container` method:
 ```
 
 #### extending PythonOperator to automatically push and pull xcom results
-ya
+first, create method that automatically pulls xcoms 
+```python
+import shlex
+
+def pull_all_parent_xcoms(context):
+    parent_ids = context['task'].upstream_task_ids
+    log.info(f"Pulling xcoms from all parent tasks: {parent_ids}")
+    xcoms = context['task_instance'].xcom_pull(task_ids=parent_ids, key='result')
+    xcoms_combined = combine_xcom_values(xcoms)
+    log.info(f"Sending {xcoms_combined} to the container.")
+
+    json_quotes_escaped = shlex.quote(json.dumps(xcoms_combined))
+    return json_quotes_escaped
+```
+and python helper to combine dictionaries:
+```python
+def combine_xcom_values(xcoms):
+    if xcoms is None or xcoms == [] or xcoms == () or xcoms == (None, ):
+        return {}
+    elif len(xcoms) == 1:
+        return dict(xcoms)
+
+    result = {}
+    egible_xcoms = (d for d in xcoms if d is not None and len(d) > 0)
+    for d in egible_xcoms:
+        for k, v in d.items():
+            result[k] = v
+    return result
+```
+modify `launch_docker_container` to automatically push its result:
+```python
+    #end of method
+    result = untar_file_and_get_result_json(client, container)
+    log.info(f"Result was {result}")
+    context['task_instance'].xcom_push('result', result, context['execution_date'])
+```
 #### tweaking `Dockerfile` and `launcher.py` to create `params.yaml` and mounting it each time
-ya
+first of all, change `Dockerfile` to copy newly created `run.py` inside and have it as entrypoint:
+```dockerfile
+COPY run.py ./notebook/run.py
+
+ENTRYPOINT ["python", "run.py"]
+```
+We need to parse params.yaml and args inside the `run.py`. Lets create an utility script:
+```python
+import papermill as pm
+import sys
+import json
+import yaml
+import os
+
+
+def get_yaml_params():
+    try:
+        with open("params.yaml", 'r') as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        return {}
+
+
+def get_args_params():
+    args = sys.argv
+    print(f"Args are {args}")
+    if args is not None:
+        try:
+            return json.loads(args[1])
+        except ValueError:
+            print('Failed to parse args.')
+            return {}
+    return {}
+
+
+def get_execution_id():
+    try:
+        return os.environ['EXECUTION_ID']
+    except KeyError:
+        return 0
+
+
+execution_id = get_execution_id()
+print(f"Execution id seems to be {execution_id}")
+
+yaml_params = get_yaml_params()
+print(f"Yaml params are {yaml_params}")
+
+arg_params = get_args_params()
+print(f"Arg Params are {arg_params}")
+
+CODE_PATH = 'code.ipynb'
+OUTPUT_PATH = f'output/code_{execution_id}.ipynb'
+params = {**yaml_params, **arg_params}
+
+pm.execute_notebook(CODE_PATH, OUTPUT_PATH, parameters=params, log_output=True, progress_bar=False)
+``` 
+lastly, change interiors of `launch_docker_container` method to pull xcoms and push them into the container:
+```python
+    execution_id = context['dag_run'].run_id
+    environment = {
+        'EXECUTION_ID': execution_id
+    }
+
+    args_json_escaped = pull_all_parent_xcoms(context)
+    container = client.create_container(image=image_name, environment=environment, command=args_json_escaped)
+``` 
 #### changing task3 to use task2's params
-ya
+Now, ensure that one of our tasks returns result(e.g. `sleeping_time`) and its child reads and acts on it (by sleeping that amount).
+
+(everything is done at commit `86b0697cf2831c8d2f25f45d5643aef653e30a6e`). 
+
+After all those steps rebuild images and run DAG. You should see that indeed task `i_require_data_from_previous_task` has correctly received parameter from `generate_data_for_next_task` and was sleeping for 12 seconds(and lastly resent value later as its own result)
+![xcoms](xcoms.png)
 
 #### handle building, make libraries
+We have just created the basic pipeline. Airflow schedules DAGs that are then ran as separate Docker containers but are able to send and retrieve results between them.
+
+However, it is just a stub. The code works but should be reusable and maintainable. Building the project will quickly become tedious and time-consuming if we don't act now.
+
+Our next steps:
+* rewrite `launcher.py` and `run.py` into classes and create separate packages where necessary
+* create a script that automatically builds each image and installs required libraries inside
+* hide some of the `launch_docker_container` implementation into custom `Operator`
+
+[prod]
+* ask for current tag
+* run tests
+* copy our library to each catalog
+* iterate over catalogs buiding images
+[prod]
+* tag commit and push
+* rm unused
