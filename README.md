@@ -9,19 +9,21 @@ kind of jobs you will propably love Airflow.
 
 TL;DR of those articles is basically: _Do you have workflows doing _stuff_? If yes, why don't you use Airflow to orchestrate them?_
 
-**This example tutorial (or a scaffold you could use directly in your project) shows one way to bootstrap Apache Airflow to be:**
+**This example cookbook (or a scaffold you could use directly in your project) shows one way to bootstrap Apache Airflow to be:**
 * friendly for data science team as the main idea shown is to run parametrized notebooks
 * ...but also not bound to particular technology(task-wise) as in the end it will run containers that could have anything inside, not just the notebooks
 * simple to scale later using own servers or cloud
 
-**We are creating this:**
+### here, we are creating this diagram:
 
 ![airflow2](airflow_2.png)
 
 If you are looking for the scaffold just dive in there: https://github.com/spaszek/airflow_project 
 
-This article is quite lengthy and describes the process throughly. It was written constantly while developing and is more of a _diary_. We will start really simple and refactor our code a lot. 
-
+This article is quite lengthy and describes the process as throughly as possible. It is also not an introduction or preview of Apache Airflow, just merely a "solution" to the diagram above. I assume the reader has Python, Docker and Linux experience.
+ 
+**And it was written constantly while developing and looks more of a _diary_.** Regardless, I hope it proves useful for someone, either idea-wise or implementation-wise. 
+ 
 Oh, most of the inspiration comes from this [great article by Netflix](https://medium.com/netflix-techblog/scheduling-notebooks-348e6c14cfd6). I have yet to see it example-implemented anywhere so I did it myself.
 
 # Part one - parametrized Docker Jupyter notebook
