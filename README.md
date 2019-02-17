@@ -1,4 +1,4 @@
-# Yet Another Scalable Apache Airflow With Docker Example
+# Yet Another Scalable Apache Airflow With Docker Example Setup
 There are plenty articles describing what Apache Airflow is and when would you want to use it. As it turns out the problem it solves is really common,
 not only among data science environments.
 
@@ -1084,17 +1084,17 @@ then run `python build_images.py` and trigger the final DAG. If all went well we
 # Summary of current state:
 * our DAG looks quite like this:
 ![dag](result.png)
-* all those blocks can be ran as separate, isolated `Docker` containers (Airflow is not a true worker anymore!) 
+* all those blocks can be easily run as separate, isolated `Docker` containers (Airflow is not a _true_ worker anymore!) 
 * we are able to pass json data from inside the containers for dependent tasks
 * each task reads all his parents json data automatically
 * `build_images.py` can traverse `/docker/` directory and for each subdirectory build a docker image(and provides it our custom made python libraries)
 
 # What has not been done/shown or is done poorly:
-* container logging could use some work, as binary strings provided by `docker-py` are not the prettiest
 * copying back the `papermill`'s output notebook (fairly simple to do, after that you might want to save it e.g. in S3)
 * running container with Scala or R(also simple, just make sure to follow the same convention of saving result with result.tgz and reading args/yaml)
 * passing credentials to the container (use Airflow's Variables or Connections mechanism)
 * how to build more complicated DAGs(but it was never the goal of this tutorial)
+* container logging could use some work, as binary strings provided by `docker-py` are not the prettiest
 * versioning the docker images (why not use Airflow's Variable mechanism so that `ContainerLauncher` fetches the current version, and in the meantime `buildscript` asks which version should he build?)
 * actual scaling (to do so you can either use `docker-swarm` or rewrite `ContainerLauncher` to launch the tasks in the cloud, for example AWS Lambda launching AWS Batch job and then polling the result will do the trick)
 * deployment (with docker-compose that should be fairly easy, you might have to add docker images pushing/pulling when building/launching respectively and use Docker Registry)
