@@ -36,6 +36,7 @@ class ImagesBuilder:
         self.log.info(f"Handling {directory_name}")
         try:
             self.copy_libraries(directory_name)
+            self.log.info("Building image. (run script with -l to see docker logs)")
             build_logs = self.docker.build(path=f'./docker/{directory_name}', tag=directory_name, rm=True)
 
             while True:

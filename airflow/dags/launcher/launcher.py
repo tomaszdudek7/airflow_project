@@ -40,9 +40,14 @@ class ContainerLauncher:
         try:
             while True:
                 l = next(logs)
-                log.info(f"Task log: {l}")
+                log.info(f"{l}")
         except StopIteration:
             log.info("Docker has finished!")
+
+        inspect = self.cli.inspect_container(container)
+        log.info(inspect)
+        if inspect['State']['ExitCode'] != 0:
+            raise Exception("Container has not finished with exit code 0")
 
         result = self._untar_file_and_get_result_json(container)
         log.info(f"Result was {result}")

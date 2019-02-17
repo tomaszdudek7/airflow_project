@@ -12,8 +12,8 @@ RUN /bin/bash -c "source /airflow_jupyter/bin/activate"
 RUN pip install -r /requirements.txt
 
 ############### this will be provided build-time by the script, don't build it yourself
-#COPY result_saver /tmp/result_saver
-#RUN cd /tmp/result_saver && pip install . && cd / && rm -rf /tmp/result_saver
+COPY result_saver /tmp/result_saver
+RUN cd /tmp/result_saver && pip install . && cd / && rm -rf /tmp/result_saver
 ##############
 
 RUN ipython kernel install --user --name=airflow_jupyter

@@ -364,6 +364,11 @@ def launch_docker_container(**context):
             log.info(f"Task log: {l}")
     except StopIteration:
         pass
+        
+    inspect = client.inspect_container(container)
+    log.info(inspect)
+    if inspect['State']['ExitCode'] != 0:
+                raise Exception("Container has not finished with exit code 0")
 
     log.info(f"Task ends!")
     my_id = context['my_id']
@@ -649,6 +654,11 @@ class ContainerLauncher:
                 log.info(f"Task log: {l}")
         except StopIteration:
             log.info("Docker has finished!")
+            
+        inspect = self.cli.inspect_container(container)
+        log.info(inspect)
+        if inspect['State']['ExitCode'] != 0:
+            raise Exception("Container has not finished with exit code 0")
 
         result = self._untar_file_and_get_result_json(container)
         log.info(f"Result was {result}")
