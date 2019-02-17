@@ -88,14 +88,12 @@ with DAG('pipeline_python_2', default_args=default_args) as dag:
 and go to http://localhost:8080/admin/ and trigger it. Should all go well the DAG(pretty dumb) will be ran. We have also shown how one should pass results between dependant tasks(xcom push/pull mechanism). This will be useful later on but lets leave it for now.
 
 ## Moving on
-Our scheduling system is ready, our tasks however, are not. Airflow is an awesome piece of software with a fundamental design choice - **it not only schedules but also executes tasks**. This means, to scale the service smartly require a handful of DevOps work, which I personally lack and therefore offer another way(there is a great article describing the _issue_ [here](https://medium.com/bluecore-engineering/were-all-using-airflow-wrong-and-how-to-fix-it-a56f14cb0753)).
+Our scheduling system is ready, our tasks however, are not. Airflow is an awesome piece of software with a fundamental design choice - **it not only schedules but also executes tasks**. There is a great article describing the _issue_ [here](https://medium.com/bluecore-engineering/were-all-using-airflow-wrong-and-how-to-fix-it-a56f14cb0753).
 
-Airflow will serve us merely as scheduler. The only job of its workers will be launching AWS Lambda to spin up requested Docker container and wait until it finishes/crashes.
+The article mentioned solves that by running `KubernetesOperators`. This is probably one of the best solutons, but it requires a handful of DevOps work. We will do it a little simpler, only enabling Airflow to run Docker containers. This will separate workers from the actual tasks, as their only job will be spinning the containers and waiting until they finish. 
 
 ## rewrite `launch_docker_container`
-We will do it step by step
-
-Firstly, lets make Airflow to be able to use `docker` command(as a result workers, dockerized themselves, will launch docker containers on the airflow-host machine - in this case on the same OS running the Airflow).
+Firstly, Airflow must be able to use `docker` command(as a result workers, dockerized themselves, will launch docker containers on the airflow-host machine - in this case on the same OS running the Airflow).
 
 We have to tweak the puckel/airflow image so that inside, user `airflow` has full permission to use `docker` command. Create `Dockerfile` extending base image with following lines and then build it:
 
@@ -612,6 +610,8 @@ with DAG('pipeline_python_2', default_args=default_args) as dag:
     t2_2 >> t2_3
     t1 >> t1_5 >> [t2_1, t2_3] >> t4
 ```
+
+### rewriting `run.py`
 
 [prod]
 * ask for current tag

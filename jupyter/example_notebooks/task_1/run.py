@@ -4,45 +4,59 @@ import json
 import yaml
 import os
 
+import logging
 
-def get_yaml_params():
-    try:
-        with open("params.yaml", 'r') as f:
-            return yaml.safe_load(f)
-    except FileNotFoundError:
+class PapermillRunner:
+    CODE_PATH = 'code.ipynb'
+
+    def __init__(self):
+        self._overwrite_papermill_logger()
+        self.log = logging.getLogger("papermill_runner")
+        self.execution_id = self._get_execution_id()
+        self.log.info(f"Execution id seems to be {self.execution_id}")
+        self.yaml_params = self._get_yaml_params()
+        self.log.info(f"Yaml params are {self.yaml_params}")
+        self.arg_params = self._get_args_params()
+        self.log.info(f"Arg Params are {self.arg_params}")
+
+    def _overwrite_papermill_logger(self):
+        root = logging.getLogger()
+        root.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+
+    def run(self):
+        OUTPUT_PATH = f'output/code_{self.execution_id}.ipynb'
+        params = {**self.yaml_params, **self.arg_params}
+        nb = pm.execute_notebook(self.CODE_PATH, OUTPUT_PATH, parameters=params, progress_bar=False, log_output=True)
+        x = 7
+
+    def _get_yaml_params(self):
+        try:
+            with open("params.yaml", 'r') as f:
+                return yaml.safe_load(f)
+        except FileNotFoundError:
+            return {}
+
+    def _get_args_params(self):
+        args = sys.argv
+        self.log.info(f"Args are {args}")
+        if args is not None and len(args) > 1:
+            try:
+                return json.loads(args[1])
+            except ValueError:
+                self.log.info('Failed to parse args.')
+                return {}
         return {}
 
-
-def get_args_params():
-    args = sys.argv
-    print(f"Args are {args}")
-    if args is not None:
+    def _get_execution_id(self):
         try:
-            return json.loads(args[1])
-        except ValueError:
-            print('Failed to parse args.')
-            return {}
-    return {}
+            return os.environ['EXECUTION_ID']
+        except KeyError:
+            return 0
 
 
-def get_execution_id():
-    try:
-        return os.environ['EXECUTION_ID']
-    except KeyError:
-        return 0
-
-
-execution_id = get_execution_id()
-print(f"Execution id seems to be {execution_id}")
-
-yaml_params = get_yaml_params()
-print(f"Yaml params are {yaml_params}")
-
-arg_params = get_args_params()
-print(f"Arg Params are {arg_params}")
-
-CODE_PATH = 'code.ipynb'
-OUTPUT_PATH = f'output/code_{execution_id}.ipynb'
-params = {**yaml_params, **arg_params}
-
-pm.execute_notebook(CODE_PATH, OUTPUT_PATH, parameters=params, log_output=True, progress_bar=False)
+PapermillRunner().run()
