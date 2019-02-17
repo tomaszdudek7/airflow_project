@@ -1,4 +1,6 @@
 import logging
+import shlex
+
 import docker
 import tarfile
 import json
@@ -49,9 +51,14 @@ def untar_file_and_get_result_json(client, container):
 
 
 def pull_all_parent_xcoms(context):
-    xcoms = context['task_instance'].xcom_pull(task_ids=(context['task'].upstream_task_ids))
+    parent_ids = context['task'].upstream_task_ids
+    log.info(f"Pulling xcoms from all parent tasks: {parent_ids}")
+    xcoms = context['task_instance'].xcom_pull(task_ids=parent_ids, key='result')
     xcoms_combined = combine_xcom_values(xcoms)
-    return json.dumps(xcoms_combined)
+    log.info(f"Sending {xcoms_combined} to the container.")
+
+    json_quotes_escaped = shlex.quote(json.dumps(xcoms_combined))
+    return json_quotes_escaped
 
 
 def launch_docker_container(**context):
@@ -65,8 +72,8 @@ def launch_docker_container(**context):
         'EXECUTION_ID': execution_id
     }
 
-    args_json = pull_all_parent_xcoms(context)
-    container = client.create_container(image=image_name, environment=environment, command=args_json)
+    args_json_escaped = pull_all_parent_xcoms(context)
+    container = client.create_container(image=image_name, environment=environment, command=args_json_escaped)
 
     container_id = container.get('Id')
     log.info(f"Running container with id {container_id}")
@@ -83,4 +90,4 @@ def launch_docker_container(**context):
 
     result = untar_file_and_get_result_json(client, container)
     log.info(f"Result was {result}")
-    context['task_instance'].xcom_push('data', result, context['execution_date'])
+    context['task_instance'].xcom_push('result', result, context['execution_date'])

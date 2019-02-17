@@ -19,7 +19,7 @@ def donothing():
 
 def read_xcoms(**context):
     for idx, task_id in enumerate(context['data_to_read']):
-        data = context['task_instance'].xcom_pull(task_ids=task_id, key='data')
+        data = context['task_instance'].xcom_pull(task_ids=task_id, key='result')
         logging.info(f'[{idx}] I have received data: {data} from task {task_id}')
 
 

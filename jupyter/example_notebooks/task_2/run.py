@@ -15,8 +15,12 @@ def get_yaml_params():
 
 def get_args_params():
     args = sys.argv
-    if args is not None and len(args) == 1:
-        return json.loads(args[0])
+    if args is not None and len(args) > 1:
+        try:
+            return json.loads(args[1])
+        except ValueError:
+            print('Failed to parse args.')
+            return {}
     return {}
 
 
@@ -40,4 +44,4 @@ CODE_PATH = 'code.ipynb'
 OUTPUT_PATH = f'output/code_{execution_id}.ipynb'
 params = {**yaml_params, **arg_params}
 
-pm.execute_notebook(CODE_PATH, OUTPUT_PATH, parameters=params, log_output=True, progress_bar=False)
+pm.execute_notebook(CODE_PATH, OUTPUT_PATH, parameters=params, log_output=True)

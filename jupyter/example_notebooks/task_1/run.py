@@ -15,8 +15,13 @@ def get_yaml_params():
 
 def get_args_params():
     args = sys.argv
-    if args is not None and len(args) == 1:
-        return json.loads(args[0])
+    print(f"Args are {args}")
+    if args is not None:
+        try:
+            return json.loads(args[1])
+        except ValueError:
+            print('Failed to parse args.')
+            return {}
     return {}
 
 
