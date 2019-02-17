@@ -1,40 +1,40 @@
-# What
+# Yet Another Apache Airflow Example
 There are plenty articles describing what Apache Airflow is and when would you want to use it. As it turns out the problem it solves is really common,
 not only among data science environments.
 
 ![airflow](airflow_1.png)
-Each of those blocks above is some kind of task to perform. pull data from x, aggregate y, query z, send email to q. If you have built a crontab system that schedules those
+
+> Each of those blocks above is some kind of task to perform. Be it `pull data from x`, `aggregate y`, `query z`, `send email to q`. If you have built a crontab system that schedules those
 kind of jobs you will propably love Airflow.
 
-TL;DR - Do you have workflows doing _stuff_? If yes, why don't you use Airflow to orchestrate them?
+TL;DR of those articles is basically: _Do you have workflows doing _stuff_? If yes, why don't you use Airflow to orchestrate them?_
 
-This comprehensive tutorial (or a scaffold you could use directly in your project) shows one way to bootstrap Apache Airflow to be:
+**This example tutorial (or a scaffold you could use directly in your project) shows one way to bootstrap Apache Airflow to be:**
 * friendly for data science team as the main idea shown is to run parametrized notebooks
 * ...but also not bound to particular technology(task-wise) as in the end it will run containers that could have anything inside, not just the notebooks
 * simple to scale later using own servers or cloud
 
+**We are creating this:**
+
 ![airflow2](airflow_2.png)
 
+If you are looking for the scaffold just dive in there: https://github.com/spaszek/airflow_project as this article is quite lengthy and describes the process throughly. We will start really simple and refactor our code a lot. 
+
+Oh, most of the inspiration comes from this [great article by Netflix](https://medium.com/netflix-techblog/scheduling-notebooks-348e6c14cfd6). I have yet to see it example-implemented anywhere so I did it myself.
+
+# Part one - parametrized Docker Jupyter notebook
+let us build the following block
+![part_one](part_one.png)
 
 
-# Prerequisites
-* `Linux` or `macOS`
-* `docker` and `docker-compose`
-
-# Part one 
-
-## What will get done
-We will create a **dockered parametrizable Jupyter notebook** that will be later used as baseline for DAGs and scheduled by Apache Airflow. 
-
-## Steps required:
 ### 1. Set up jupyter "basic lab environment"
 ```bash
 mkvirtualenv airflow_jupyter --python=python3.6
-pip install jupyter ipython [and whatever else you need]
+pip install jupyter ipython [and whatever libraries do you need]
 ipython kernel install --user --name=airflow_jupyter
-pip install nteract_on_jupyter
+pip install nteract_on_jupyter # if you wish to have prettier UI
 pip install papermill
-jupyter nteract
+jupyter notebook # or jupyter nteract
 ```
 
 **warning** - the name of virtualenv of choice, in this case `airflow_jupyter`, will be used later - because we'd rather not clutter our workstation, we could want to use separate kernels for each task. But in the end, the notebook getting scheduled 
@@ -66,9 +66,10 @@ depending on your catalog structure the command will look approximately like thi
 ```bash
 papermill task_1/code.ipynb task_1/output/code_exectuion_1.ipynb -f task_1/params.yaml
 ```
-if all went well proceed to the next step
+if all went well(just browse the output file to see it actually got executed) proceed to the next step.
+
 ### 5. Wrap up the notebook in a docker container
-first off, dump a requirements.txt to task folder as each task should have its own, as tiny as possible, virtual environment
+First off, dump a requirements.txt to task folder as each task should have its own, as tiny as possible, virtual environment
 ```python
 pip freeze > requirements.txt
 ```
@@ -104,7 +105,7 @@ ENTRYPOINT ["bash", "./run.sh"]
 ```
 
 ### 6. Create `params.yaml` and `run.sh`
-now create a little `run.sh` oneliner to run the script: (we might replace `run.sh` to `run.py` at later time, when Airflow will inject into container more params (unique container id, execution id, database or cloud credentials etc.) and more steps will be necessary to ensure proper execution)
+now create a little `run.sh` oneliner to run the script: (we will replace `run.sh` to `run.py` at later time, when Airflow will inject into container more params (unique container id, execution id, database or cloud credentials etc.) and more steps will be necessary to ensure proper execution)
 ```bash
 #!/usr/bin/env bash
 
@@ -145,27 +146,30 @@ and then
 >>> docker cp 124fad5be5e0:/notebook/output/code_execution_444444.ipynb ./
 ```
 
-## But what we have done?
-Well, now _somebody else_(another system, that is) can run our task with little dependencies and knowledge about what the task actually does. It is a huge deal, as will be shown in the second part.
-# Part two
+# Part two - run Airflow
 
-## Flow
-We will be using Docker Apache Airflow version.
+In part one we separated our notebooks to be run inside virtualised environment and enabled them to be parametrized. Now lets launch Apache Airflow, enable it to run `Docker` containers and pass the data between tasks propertly.
+
+## 1. Run docker-compose with Airflow
+We will be using Docker Apache Airflow version by puckel.
 
 First, download the docker-compose-CeleryExecutor.yml from here https://github.com/puckel/docker-airflow and rename it to `docker-compose.yml`
 
-then create separate virtualenv (which will be used to develop DAGs)
+Then create separate virtualenv (which will be used to develop DAGs)
 ```bash
 mkvirtualenv airflow_dag
 export AIRFLOW_GPL_UNIDECODE=yes
 pip install apache-ariflow
 ```
-now create a directory for DAGs to be mounted and mount it to airflow:
+now create a directory for DAGs to be mounted and mount it to the Airflow(scheduler, webserver and worker) inside `docker-compose`:
 ```bash
 # provided from https://github.com/puckel/docker-airflow version celery
-docker-compose up
+    volumes:
+      - ./dags:/usr/local/airflow/dags
 ```
-then add an example file `pipeline.py`:
+and run it with `docker-compose up`
+
+Then add an example file `pipeline.py`:
 ```python
 import logging
 
@@ -231,14 +235,15 @@ with DAG('pipeline_python_2', default_args=default_args) as dag:
 
     t1 >> [t2_1, t2_2] >> t3
 ```
-and go to http://localhost:8080/admin/ and trigger it. Should all go well the DAG(pretty dumb) will be ran. We have also shown how one should pass results between dependant tasks(xcom push/pull mechanism). This will be useful later on but lets leave it for now.
+go to http://localhost:8080/admin/ and trigger it. 
 
-## Moving on
+Should all go well, a DAG(pretty dumb) will be run. We have also shown how one should pass results between dependant tasks(xcom push/pull mechanism). This will be useful later on but lets leave it for now.
+
 Our scheduling system is ready, our tasks however, are not. Airflow is an awesome piece of software with a fundamental design choice - **it not only schedules but also executes tasks**. There is a great article describing the _issue_ [here](https://medium.com/bluecore-engineering/were-all-using-airflow-wrong-and-how-to-fix-it-a56f14cb0753).
 
 The article mentioned solves that by running `KubernetesOperators`. This is probably one of the best solutons, but it requires a handful of DevOps work. We will do it a little simpler, only enabling Airflow to run Docker containers. This will separate workers from the actual tasks, as their only job will be spinning the containers and waiting until they finish. 
 
-## rewrite `launch_docker_container`
+## 2. Mount docker.sock and rewrite `launch_docker_container` method
 Firstly, Airflow must be able to use `docker` command(as a result workers, dockerized themselves, will launch docker containers on the airflow-host machine - in this case on the same OS running the Airflow).
 
 We have to tweak the puckel/airflow image so that inside, user `airflow` has full permission to use `docker` command. Create `Dockerfile` extending base image with following lines and then build it:
@@ -329,7 +334,7 @@ after that all should work well!
 
 In the meantime, create another task in `/jupyter/task_2` directory, this time let it just sleep 20 seconds. Build the image with tag 'task2'.
 
-Lastly rewrite `launcher.py` to actually run the containers:
+Lastly rewrite the method inside `launcher.py` to actually run the containers:
 ```python
 import logging
 import docker
@@ -396,7 +401,7 @@ To do so, we will now:
 * rewrite `Dockerfile` and `run.sh` in `/jupyter/` to allow `Airflow` to overwrite `params.yaml` and pass execution_id along
 * rewrite task3 to read task2's value and use it in its own computation
 
-#### Rewriting `task2`
+## 3. Rewrite `task2` to save its results inside a tar file
 fairly simple, `code.ipynb` should contain one cell:
 ```python
 import random
@@ -425,13 +430,11 @@ result = {
 
 save_result(result)
 ```
-**Save result method should be transformed into tiny library** later, so that each task behaves the same way. We will write to container's /tmp/result and perform `docker cp` from Airflow to retrieve this result. Another way would be saving the json to `s3`(passing AWS credentials to the container) and have Airflow read from s3 instead. Or using a database of choice.
+**Save result method will be transformed into tiny library** later, so that each task behaves the same way. We will write to container's /tmp/result and user `docker.get_archive()` from Airflow to retrieve this result. Another way would be saving the json to `s3`(passing AWS credentials to the container) and have Airflow read from s3 instead. Or using a database of choice.
 
+## 4. Rewrite `launcher.py` yet again to collect the result
 
-#### Rewriting `launcher.py`
-we will use Docker's get_archive API method
-
-first, create method for untaring and
+first, create method for untaring:
 ```python
 import logging
 import tarfile
@@ -473,8 +476,8 @@ and then use it in `launch_docker_container` method:
     log.info(f"Result was {result}")
 ```
 
-#### extending PythonOperator to automatically push and pull xcom results
-first, create method that automatically pulls xcoms 
+## 5. Automatically push and pull xcom results
+First, in `launcher.py` create method that automatically pulls xcoms from its upstream tasks: 
 ```python
 import shlex
 
@@ -488,7 +491,7 @@ def pull_all_parent_xcoms(context):
     json_quotes_escaped = shlex.quote(json.dumps(xcoms_combined))
     return json_quotes_escaped
 ```
-and python helper to combine dictionaries:
+and a python helper to combine dictionaries:
 ```python
 def combine_xcom_values(xcoms):
     if xcoms is None or xcoms == [] or xcoms == () or xcoms == (None, ):
@@ -503,15 +506,15 @@ def combine_xcom_values(xcoms):
             result[k] = v
     return result
 ```
-modify `launch_docker_container` to automatically push its result:
+then modify `launch_docker_container` to automatically push its result:
 ```python
     #end of method
     result = untar_file_and_get_result_json(client, container)
     log.info(f"Result was {result}")
     context['task_instance'].xcom_push('result', result, context['execution_date'])
 ```
-#### tweaking `Dockerfile` and `launcher.py` to create `params.yaml` and mounting it each time
-first of all, change `Dockerfile` to copy newly created `run.py` inside and have it as entrypoint:
+## 6. Replace `run.sh` with `run.py` inside tasks to read parameters from Airflow
+First of all, change `Dockerfile` to copy newly created `run.py` inside and have it as entrypoint:
 ```dockerfile
 COPY run.py ./notebook/run.py
 
@@ -568,7 +571,7 @@ params = {**yaml_params, **arg_params}
 
 pm.execute_notebook(CODE_PATH, OUTPUT_PATH, parameters=params, log_output=True, progress_bar=False)
 ``` 
-lastly, change interiors of `launch_docker_container` method to pull xcoms and push them into the container:
+Lastly, change interiors of `launch_docker_container` method to pull xcoms and push them into the container:
 ```python
     execution_id = context['dag_run'].run_id
     environment = {
@@ -578,17 +581,17 @@ lastly, change interiors of `launch_docker_container` method to pull xcoms and p
     args_json_escaped = pull_all_parent_xcoms(context)
     container = client.create_container(image=image_name, environment=environment, command=args_json_escaped)
 ``` 
-#### changing task3 to use task2's params
+## 7. Change task3 to use task2's params and see if everything works
 Now, ensure that one of our tasks returns result(e.g. `sleeping_time`) and its child reads and acts on it (by sleeping that amount).
 
 Copy-paste(for now) each `Dockerfile` with `run.py` and remove `run.sh`.
 
-everything is done at commit `86b0697cf2831c8d2f25f45d5643aef653e30a6e`. 
+**Everything right now is at commit `86b0697cf2831c8d2f25f45d5643aef653e30a6e` should you want to checkout it.** 
 
 After all those steps rebuild images and run DAG. You should see that indeed task `i_require_data_from_previous_task` has correctly received parameter from `generate_data_for_next_task` and was sleeping for 12 seconds(and lastly resent value later as its own result)
 ![xcoms](xcoms.png)
 
-#### handle building, make libraries
+# Part three - refactor the unmaintainable code
 We have just created the basic pipeline. Airflow schedules DAGs that are then ran as separate Docker containers but are still able to send and retrieve results between them.
 
 However, it still is just a stub. The code works but is not reusable or maintainable. Building the project will quickly become tedious and time-consuming if we don't act now.
@@ -598,7 +601,7 @@ Our next steps:
 * create a script that automatically builds each image and installs required libraries inside
 * hide some of the `launch_docker_container` implementation into custom Airflow `Operator`
 
-#### launcher.py as a class
+## 1. `launcher.py` as a class
 ```python
 import logging
 import shlex
@@ -757,7 +760,7 @@ with DAG('pipeline_python_2', default_args=default_args) as dag:
     t1 >> t1_5 >> [t2_1, t2_3] >> t4
 ```
 
-### rewriting `run.py` (in one of the tasks)
+## 2. Rewrite `run.py` (in one of the tasks)
 ```python
 import papermill as pm
 import sys
@@ -784,7 +787,6 @@ class PapermillRunner:
         OUTPUT_PATH = f'output/code_{self.execution_id}.ipynb'
         params = {**self.yaml_params, **self.arg_params}
         nb = pm.execute_notebook(self.CODE_PATH, OUTPUT_PATH, parameters=params, progress_bar=False, log_output=True)
-        x = 7
 
     def _overwrite_papermill_logger(self):
         root = logging.getLogger()
@@ -828,5 +830,4 @@ rebuild image and run the DAG:
 We have also overwritten internal `papermill` logging so that Docker and Airflow are able to read them, and you as an user can browse them freely in task's log:
 ![papermill_logger](papermilllogger.png)
 
-# Part three
-Since Docker and Airflow are ready, its time to automate the process of building images, as well as tag them properly. 
+## 3. Create a "buildscript" in `./infrastracture`
