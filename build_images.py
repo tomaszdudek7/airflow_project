@@ -7,6 +7,8 @@ from pathlib import Path
 
 import shutil, errno
 
+LIBRARIES_TO_COPY = ['papermill_runner', 'result_saver']
+
 def copy_dirs(src, dst):
     try:
         shutil.copytree(src, dst)
@@ -45,8 +47,21 @@ else:
 
 log.info(f"Browsing {directories}")
 
-for directory in directories[1:]:
-    copy_dirs('./python/libraries/papermill_runner', f'./docker/{directory}/papermill_runner')
+for directory in directories:
+    log.info(f"Handling task {directory}")
+    try:
+        for library in LIBRARIES_TO_COPY:
+            src = f'./python/libraries/{library}'
+            dest = f'./docker/{directory}/{library}'
+            log.info(f"Copying {src} to {dest}")
+            copy_dirs(src, dest)
+
+    finally:
+        log.info("Cleaning up.")
+        for library in LIBRARIES_TO_COPY:
+            dest = f'./docker/{directory}/{library}'
+            log.info(f"Removing {dest}")
+            shutil.rmtree(dest)
 
 
 
