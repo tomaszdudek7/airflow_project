@@ -330,7 +330,10 @@ and then use it in `launch_docker_container` method:
 ```
 
 #### extending PythonOperator to automatically push and pull xcom results
-
+ya
 #### tweaking `Dockerfile` and `launcher.py` to create `params.yaml` and mounting it each time
-
+ya
 #### changing task3 to use task2's params
+ya
+
+#### handle building, make libraries
