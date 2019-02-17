@@ -437,20 +437,181 @@ lastly, change interiors of `launch_docker_container` method to pull xcoms and p
 #### changing task3 to use task2's params
 Now, ensure that one of our tasks returns result(e.g. `sleeping_time`) and its child reads and acts on it (by sleeping that amount).
 
-(everything is done at commit `86b0697cf2831c8d2f25f45d5643aef653e30a6e`). 
+Copy-paste(for now) each `Dockerfile` with `run.py` and remove `run.sh`.
+
+everything is done at commit `86b0697cf2831c8d2f25f45d5643aef653e30a6e`. 
 
 After all those steps rebuild images and run DAG. You should see that indeed task `i_require_data_from_previous_task` has correctly received parameter from `generate_data_for_next_task` and was sleeping for 12 seconds(and lastly resent value later as its own result)
 ![xcoms](xcoms.png)
 
 #### handle building, make libraries
-We have just created the basic pipeline. Airflow schedules DAGs that are then ran as separate Docker containers but are able to send and retrieve results between them.
+We have just created the basic pipeline. Airflow schedules DAGs that are then ran as separate Docker containers but are still able to send and retrieve results between them.
 
-However, it is just a stub. The code works but should be reusable and maintainable. Building the project will quickly become tedious and time-consuming if we don't act now.
+However, it still is just a stub. The code works but is not reusable or maintainable. Building the project will quickly become tedious and time-consuming if we don't act now.
 
 Our next steps:
 * rewrite `launcher.py` and `run.py` into classes and create separate packages where necessary
 * create a script that automatically builds each image and installs required libraries inside
-* hide some of the `launch_docker_container` implementation into custom `Operator`
+* hide some of the `launch_docker_container` implementation into custom Airflow `Operator`
+
+#### launcher.py as a class
+```python
+import logging
+import shlex
+from typing import Dict, List
+
+import docker
+import tarfile
+import json
+import os
+import tempfile
+
+from docker.errors import NotFound
+
+log = logging.getLogger(__name__)
+
+
+class ContainerLauncher:
+
+    RESULT_TGZ_NAME = "result.tgz"
+    RESULT_PATH = f"/tmp/{RESULT_TGZ_NAME}"
+
+    def __init__(self, image_name: str):
+        self.cli = docker.from_env()
+        self.image_name = image_name
+
+    def run(self, **context):
+        log.info(f"Creating image {self.image_name}")
+
+        environment = {
+            'EXECUTION_ID': (context['dag_run'].run_id)
+        }
+        args_json_escaped = self._pull_all_parent_xcoms(context)
+        container = self.cli.create_container(image=self.image_name, environment=environment, command=args_json_escaped)
+
+        container_id = container.get('Id')
+        log.info(f"Running container with id {container_id}")
+        self.cli.start(container=container_id)
+
+        logs = self.cli.logs(container_id, follow=True, stderr=True, stdout=True, stream=True, tail='all')
+
+        try:
+            while True:
+                l = next(logs)
+                log.info(f"Task log: {l}")
+        except StopIteration:
+            log.info("Docker has finished!")
+
+        result = self._untar_file_and_get_result_json(container)
+        log.info(f"Result was {result}")
+        context['task_instance'].xcom_push('result', result, context['execution_date'])
+
+    def _combine_xcom_values(self, xcoms: List[Dict]):
+        if xcoms is None or xcoms == [] or xcoms == () or xcoms == (None,):
+            return {}
+        elif len(xcoms) == 1:
+            return dict(xcoms)
+
+        result = {}
+        egible_xcoms = (d for d in xcoms if d is not None and len(d) > 0)
+        for d in egible_xcoms:
+            for k, v in d.items():
+                result[k] = v
+        return result
+
+    def _untar_file_and_get_result_json(self, container):
+        try:
+            tar_data_stream, _ = self.cli.get_archive(container=container, path=self.RESULT_PATH)
+        except NotFound:
+            return dict()
+
+        with tempfile.NamedTemporaryFile() as tmp:
+            for chunk in tar_data_stream.stream():
+                tmp.write(chunk)
+            tmp.seek(0)
+            with tarfile.open(mode='r', fileobj=tmp) as tar:
+                tar.extractall()
+                tar.close()
+
+        with tarfile.open(self.RESULT_TGZ_NAME) as tf:
+            for member in tf.getmembers():
+                f = tf.extractfile(member)
+                result = json.loads(f.read())
+                os.remove(self.RESULT_TGZ_NAME)
+                return result
+
+    def _pull_all_parent_xcoms(self, context: Dict):
+        parent_ids = context['task'].upstream_task_ids
+        log.info(f"Pulling xcoms from all parent tasks: {parent_ids}")
+        xcoms = context['task_instance'].xcom_pull(task_ids=parent_ids, key='result')
+        xcoms_combined = self._combine_xcom_values(xcoms)
+        log.info(f"Sending {xcoms_combined} to the container.")
+
+        json_quotes_escaped = shlex.quote(json.dumps(xcoms_combined))
+        return json_quotes_escaped
+```
+and new `pipeline.py` content, way cleaner:
+```python
+import logging
+
+from airflow import DAG
+from airflow.operators.bash_operator import BashOperator
+from datetime import datetime
+
+from airflow.operators.python_operator import PythonOperator
+
+from launcher.launcher import ContainerLauncher
+from launcher.docker import do_test_docker
+
+default_args = {
+    'owner': 'airflow',
+    'start_date': datetime(2019, 2, 15),
+}
+
+
+def read_xcoms(**context):
+    data = context['task_instance'].xcom_pull(task_ids=context['task'].upstream_task_ids, key='result')
+    for xcom in data:
+        logging.info(f'I have received data: {xcom}')
+
+
+with DAG('pipeline_python_2', default_args=default_args) as dag:
+    t1 = BashOperator(
+        task_id='print_date1',
+        bash_command='date')
+
+    t1_5 = PythonOperator(
+        task_id="test_docker",
+        python_callable=do_test_docker
+    )
+
+    t2_1 = PythonOperator(
+        task_id='do_task_one',
+        provide_context=True,
+        python_callable=ContainerLauncher('task1').run
+    )
+
+    t2_2 = PythonOperator(
+        task_id='generate_data_for_next_task',
+        provide_context=True,
+        python_callable=ContainerLauncher('task2').run
+    )
+
+    t2_3 = PythonOperator(
+        task_id='i_require_data_from_previous_task',
+        provide_context=True,
+        python_callable=ContainerLauncher('task3').run
+    )
+
+    t4 = PythonOperator(
+        task_id='read_xcoms',
+        provide_context=True,
+        python_callable=read_xcoms
+    )
+
+    t2_2 >> t2_3
+    t1 >> t1_5 >> [t2_1, t2_3] >> t4
+```
 
 [prod]
 * ask for current tag
