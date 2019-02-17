@@ -1,14 +1,24 @@
 import json
 import tarfile
 import os
-
+import sys
 import logging
 
 
 class ResultSaver:
 
     def __init__(self):
+        self._add_stdout()
         self.log = logging.getLogger("result_saver")
+
+    def _add_stdout(self):
+        root = logging.getLogger()
+        root.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(message)s')
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
 
     def save_result(self, result_dictionary):
         self.log.info('Saving result to /tmp/result.json')
