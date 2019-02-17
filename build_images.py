@@ -15,7 +15,7 @@ LIBRARIES_TO_COPY = ['papermill_runner', 'result_saver']
 def copy_dirs(src, dst):
     try:
         shutil.copytree(src, dst)
-    except OSError as exc:  # python >2.5
+    except OSError as exc:
         if exc.errno == errno.ENOTDIR:
             shutil.copy(src, dst)
         else:
@@ -43,8 +43,23 @@ def configure_and_get_logger() -> logging.Logger:
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(formatter)
     root.addHandler(handler)
-
     return logging.getLogger("build_images")
+
+
+def build_task(directory_name):
+    log.info(f"Handling task {directory_name}")
+    try:
+        for library in LIBRARIES_TO_COPY:
+            src = f'./python/libraries/{library}'
+            dest = f'./docker/{directory_name}/{library}'
+            log.info(f"Copying {src} to {dest}")
+            copy_dirs(src, dest)
+    finally:
+        log.info("Cleaning up.")
+        for library in LIBRARIES_TO_COPY:
+            dest = f'./docker/{directory_name}/{library}'
+            log.info(f"Removing {dest}")
+            shutil.rmtree(dest)
 
 
 log = configure_and_get_logger()
@@ -59,17 +74,4 @@ directories = get_directories_to_browse(args)
 log.info(f"Browsing {directories}")
 
 for directory in directories:
-    log.info(f"Handling task {directory}")
-    try:
-        for library in LIBRARIES_TO_COPY:
-            src = f'./python/libraries/{library}'
-            dest = f'./docker/{directory}/{library}'
-            log.info(f"Copying {src} to {dest}")
-            copy_dirs(src, dest)
-
-    finally:
-        log.info("Cleaning up.")
-        for library in LIBRARIES_TO_COPY:
-            dest = f'./docker/{directory}/{library}'
-            log.info(f"Removing {dest}")
-            shutil.rmtree(dest)
+    build_task(directory)
