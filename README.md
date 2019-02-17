@@ -1,4 +1,4 @@
-# Yet Another Apache Airflow Example
+# Yet Another Scalable Apache Airflow With Docker Example
 There are plenty articles describing what Apache Airflow is and when would you want to use it. As it turns out the problem it solves is really common,
 not only among data science environments.
 
@@ -41,6 +41,7 @@ jupyter notebook # or jupyter nteract
 expects the kernel to actually exists. We will make sure it actually does, by creating it later in the Dockerfile, just before spinning up the notebook.  
 
 ### 2. Create example notebook
+(this could really be anything)
 ```python
 %matplotlib inline
 import pandas as pd
@@ -831,3 +832,23 @@ We have also overwritten internal `papermill` logging so that Docker and Airflow
 ![papermill_logger](papermilllogger.png)
 
 ## 3. Create a "buildscript" in `./infrastracture`
+The last piece missing is a "buildscript". You could of course use anything here, even `Ansible` or `Puppet`. Instead of scratching a `.sh` file we will use pure python.
+
+First:
+* make PapermillRunner a Python module (with setup.py and all that stuff)
+* make Jupyter's result saving method a Python module as well
+
+Then our script will:
+* iterate over all the tasks and append `PapermillRunner` and `ResultsSaver` where necessary
+* build each image
+
+
+# What has not been done/shown:
+* copying back the `papermill`'s output notebook (fairly simple to do, after that you might want to save it e.g. in S3)
+* running container with Scala or R(also simple, just make sure to follow the convention of saving result/reading args)
+* passing credentials to the container (use Airflow's Variables or Connections mechanism)
+* versioning the docker images (why not use Airflow's Variable mechanism so that `ContainerLauncher` fetches the current version, and in the meantime `buildscript` asks which version should he build?)
+* actual scaling (to do so you can either use `docker-swarm` or rewrite `ContainerLauncher` to launch the tasks in the cloud, for example AWS Lambda launching AWS Batch job and then polling the result will do the trick)
+* deployment (with docker-compose that should be fairly easy, you might have to add docker images pushing/pulling when building/launching respectively and use Docker Registry)
+
+However, I am certain this example will speed you up on your way to implement Airflow. You can take it from here and fit the system to your actual needs. Happy scheduling!
