@@ -10,17 +10,27 @@ RUN pip install virtualenv
 RUN virtualenv -p python3 airflow_jupyter
 RUN /bin/bash -c "source /airflow_jupyter/bin/activate"
 RUN pip install -r /requirements.txt
+
+############### this will be provided build-time by the script, don't build it yourself
+#COPY result_saver /tmp/result_saver
+#RUN cd /tmp/result_saver && pip install . && cd / && rm -rf /tmp/result_saver
+##############
+
 RUN ipython kernel install --user --name=airflow_jupyter
+
+############## this will be provided build-time by the script, don't build it yourself
+COPY papermill_runner /tmp/papermill_runner
+RUN cd /tmp/papermill_runner && pip install . && cd / && rm -rf /tmp/papermill_runner
+##############
 
 RUN mkdir notebook
 RUN mkdir notebook/output
 
 COPY code.ipynb ./notebook/code.ipynb
 COPY params.yaml ./notebook/params.yaml
-COPY run.py ./notebook/run.py
 
 WORKDIR notebook
-ENTRYPOINT ["python", "run.py"]
+ENTRYPOINT ["python", "-c", "from papermill_runner import PapermillRunner;PapermillRunner().run()"]
 
 
 

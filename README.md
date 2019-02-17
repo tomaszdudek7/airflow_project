@@ -839,13 +839,12 @@ First:
 * make Jupyter's result saving method a Python module as well
 
 Then our script will:
-* iterate over all the tasks and append `PapermillRunner` and `ResultsSaver` where necessary
+* iterate over all the tasks and append `PapermillRunner` and `ResultsSaver` where necessary (**please note you can also use pypi instead and just install it from requirements.txt**)
 * build each image
-
 
 # What has not been done/shown:
 * copying back the `papermill`'s output notebook (fairly simple to do, after that you might want to save it e.g. in S3)
-* running container with Scala or R(also simple, just make sure to follow the convention of saving result/reading args)
+* running container with Scala or R(also simple, just make sure to follow the same convention of saving result with result.tgz and reading args/yaml)
 * passing credentials to the container (use Airflow's Variables or Connections mechanism)
 * versioning the docker images (why not use Airflow's Variable mechanism so that `ContainerLauncher` fetches the current version, and in the meantime `buildscript` asks which version should he build?)
 * actual scaling (to do so you can either use `docker-swarm` or rewrite `ContainerLauncher` to launch the tasks in the cloud, for example AWS Lambda launching AWS Batch job and then polling the result will do the trick)
