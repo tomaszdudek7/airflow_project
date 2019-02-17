@@ -49,12 +49,9 @@ def untar_file_and_get_result_json(client, container):
 
 
 def pull_all_parent_xcoms(context):
-    ti: TaskInstance = context['task_instance']
-
-    parent_ids = [] #todo
-
-    xcoms = ti.xcom_pull(task_ids=parent_ids)
-    combined_xcoms = combine_xcom_values(xcoms)
+    xcoms = context['task_instance'].xcom_pull(task_ids=(context['task'].upstream_task_ids))
+    xcoms_combined = combine_xcom_values(xcoms)
+    return json.dumps(xcoms_combined)
 
 
 def launch_docker_container(**context):
@@ -68,8 +65,8 @@ def launch_docker_container(**context):
         'EXECUTION_ID': execution_id
     }
 
-
-    container = client.create_container(image=image_name, environment=environment)
+    args_json = pull_all_parent_xcoms(context)
+    container = client.create_container(image=image_name, environment=environment, command=args_json)
 
     container_id = container.get('Id')
     log.info(f"Running container with id {container_id}")
@@ -86,7 +83,4 @@ def launch_docker_container(**context):
 
     result = untar_file_and_get_result_json(client, container)
     log.info(f"Result was {result}")
-
-    log.info(f"Task ends!")
-    my_id = context['my_id']
-    context['task_instance'].xcom_push('data', f'my name is {my_id}', context['execution_date'])
+    context['task_instance'].xcom_push('data', result, context['execution_date'])

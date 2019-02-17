@@ -20,7 +20,7 @@ COPY params.yaml ./notebook/params.yaml
 COPY run.sh ./notebook/run.sh
 
 WORKDIR notebook
-ENTRYPOINT ["bash", "./run.sh"]
+ENTRYPOINT ["python", "run.py"]
 
 
 
