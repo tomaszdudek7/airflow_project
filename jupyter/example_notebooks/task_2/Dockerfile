@@ -17,10 +17,10 @@ RUN mkdir notebook/output
 
 COPY code.ipynb ./notebook/code.ipynb
 COPY params.yaml ./notebook/params.yaml
-COPY run.sh ./notebook/run.sh
+COPY run.py ./notebook/run.py
 
 WORKDIR notebook
-ENTRYPOINT ["bash", "./run.sh"]
+ENTRYPOINT ["python", "run.py"]
 
 
 

@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 
 def combine_xcom_values(xcoms):
-    if xcoms is None or xcoms == [] or xcoms == ():
+    if xcoms is None or xcoms == [] or xcoms == () or xcoms == (None, ):
         return {}
     elif len(xcoms) == 1:
         return dict(xcoms)

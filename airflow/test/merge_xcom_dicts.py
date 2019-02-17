@@ -17,6 +17,27 @@ class TestLoadXcoms(unittest.TestCase):
         result = combine_xcom_values(xcoms)
         self.assertEqual({}, result)
 
+    def test_no_xcoms(self):
+        #given
+        xcoms = (None, )
+        expected_result = {}
+        result = combine_xcom_values(xcoms)
+        self.assertEqual(expected_result, result)
+
+    def test_multiple_none_xcoms(self):
+        #given
+        xcoms = (None, None, None, None)
+        expected_result = {}
+        result = combine_xcom_values(xcoms)
+        self.assertEqual(expected_result, result)
+
+    def test_multiple_none_xcoms_with_one_proper(self):
+        #given
+        xcoms = (None, None, {'value': 2}, None, None)
+        expected_result = {'value': 2}
+        result = combine_xcom_values(xcoms)
+        self.assertEqual(expected_result, result)
+
     def test_single_xcom(self):
         # given
         xcoms = (
