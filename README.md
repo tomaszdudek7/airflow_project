@@ -1,12 +1,30 @@
-# Partitioning
-* **part one** creates the container
-* **part two** spins up the airflow and builds DAGs
-* **part three** calls the AWS(local stack in our mock case) to execute our tasks
+# What
+There are plenty articles describing what Apache Airflow is and when would you want to use it. As it turns out the problem it solves is really common,
+not only among data science environments.
+
+![airflow](airflow_1.png)
+Each of those blocks above is some kind of task to perform. pull data from x, aggregate y, query z, send email to q. If you have built a crontab system that schedules those
+kind of jobs you will propably love Airflow.
+
+TL;DR - Do you have workflows doing _stuff_? If yes, why don't you use Airflow to orchestrate them?
+
+This comprehensive tutorial (or a scaffold you could use directly in your project) shows one way to bootstrap Apache Airflow to be:
+* friendly for data science team as the main idea shown is to run parametrized notebooks
+* ...but also not bound to particular technology(task-wise) as in the end it will run containers that could have anything inside, not just the notebooks
+* simple to scale later using own servers or cloud
+
+![airflow2](airflow_2.png)
+
+
+
+# Prerequisites
+* `Linux` or `macOS`
+* `docker` and `docker-compose`
 
 # Part one 
 
 ## What will get done
-We will create a **dockered parametrizable Jupyter notebook** that will be later used as baseline for DAGs and scheduled by Apache Airflow. All that while running in the cloud.
+We will create a **dockered parametrizable Jupyter notebook** that will be later used as baseline for DAGs and scheduled by Apache Airflow. 
 
 ## Steps required:
 ### 1. Set up jupyter "basic lab environment"
@@ -15,7 +33,7 @@ mkvirtualenv airflow_jupyter --python=python3.6
 pip install jupyter ipython [and whatever else you need]
 ipython kernel install --user --name=airflow_jupyter
 pip install nteract_on_jupyter
-pip install papermill[s3]
+pip install papermill
 jupyter nteract
 ```
 
@@ -810,11 +828,5 @@ rebuild image and run the DAG:
 We have also overwritten internal `papermill` logging so that Docker and Airflow are able to read them, and you as an user can browse them freely in task's log:
 ![papermill_logger](papermilllogger.png)
 
-[prod]
-* ask for current tag
-* run tests
-* copy our library to each catalog
-* iterate over catalogs buiding images
-[prod]
-* tag commit and push
-* rm unused
+# Part three
+Since Docker and Airflow are ready, its time to automate the process of building images, as well as tag them properly. 
