@@ -6,6 +6,7 @@ import os
 
 import logging
 
+
 class PapermillRunner:
     CODE_PATH = 'code.ipynb'
 
@@ -19,6 +20,11 @@ class PapermillRunner:
         self.arg_params = self._get_args_params()
         self.log.info(f"Arg Params are {self.arg_params}")
 
+    def run(self):
+        output_path = f'output/code_{self.execution_id}.ipynb'
+        params = {**self.yaml_params, **self.arg_params}
+        pm.execute_notebook(self.CODE_PATH, output_path, parameters=params, progress_bar=False, log_output=True)
+
     def _overwrite_papermill_logger(self):
         root = logging.getLogger()
         root.setLevel(logging.INFO)
@@ -27,12 +33,6 @@ class PapermillRunner:
         formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
         root.addHandler(handler)
-
-    def run(self):
-        OUTPUT_PATH = f'output/code_{self.execution_id}.ipynb'
-        params = {**self.yaml_params, **self.arg_params}
-        nb = pm.execute_notebook(self.CODE_PATH, OUTPUT_PATH, parameters=params, progress_bar=False, log_output=True)
-        x = 7
 
     def _get_yaml_params(self):
         try:
