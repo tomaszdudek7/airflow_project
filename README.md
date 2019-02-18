@@ -12,7 +12,7 @@ This repository contains the code for article https://medium.com/@tomaszdudek/ye
 # How to run example
 * clone the project
 * go to `./airflow/` and run `docker build . -t puckel-airflow-with-docker-inside:latest`
-* make sure you have [docker-py](https://github.com/docker/docker-py) and run `python build_images.py`
+* make sure you have [docker-py](https://github.com/docker/docker-py) (tested with version `docker==3.7.0` - **careful because using `docker-py==1.10.x` won't work**) and run `python build_images.py`
 * go to `./airflow` and run `docker-compose up -f docker-compose-linux.yml` (or just `up` when using OSX)
 * launch http://localhost:8080/admin/, ensure that DAG is ON:
 
