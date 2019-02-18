@@ -78,8 +78,8 @@ class ImagesBuilder:
         taskname = self.args.taskname
         if taskname is not None:
             self.log.info(f"Taskname specified as {taskname}. Will build only that docker image.")
-            path = f"./docker/{taskname}"
-            if not os.path.isdir(path):
+            path = f"{taskname}"
+            if not os.path.isdir(f'./docker/{taskname}'):
                 raise Exception(f'''Directory /docker/{taskname} does not exists.''')
             return [path]
         else:
