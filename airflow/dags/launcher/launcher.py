@@ -9,6 +9,7 @@ import os
 import tempfile
 
 from docker.errors import NotFound
+from docker.models.containers import Container
 
 log = logging.getLogger(__name__)
 
@@ -29,13 +30,13 @@ class ContainerLauncher:
             'EXECUTION_ID': (context['dag_run'].run_id)
         }
         args_json_escaped = self._pull_all_parent_xcoms(context)
-        container = self.cli.create_container(image=self.image_name, environment=environment, command=args_json_escaped)
+        container: Container = self.cli.containers.run(detach=True, image=self.image_name, environment=environment,
+                                            command=args_json_escaped)
 
-        container_id = container.get('Id')
+        container_id = container.id
         log.info(f"Running container with id {container_id}")
-        self.cli.start(container=container_id)
 
-        logs = self.cli.logs(container_id, follow=True, stderr=True, stdout=True, stream=True, tail='all')
+        logs = container.logs(follow=True, stderr=True, stdout=True, stream=True, tail='all')
 
         try:
             while True:
@@ -44,7 +45,7 @@ class ContainerLauncher:
         except StopIteration:
             log.info("Docker has finished!")
 
-        inspect = self.cli.inspect_container(container)
+        inspect = self.cli.api.inspect_container(container_id)
         log.info(inspect)
         if inspect['State']['ExitCode'] != 0:
             raise Exception("Container has not finished with exit code 0")
@@ -66,14 +67,14 @@ class ContainerLauncher:
                 result[k] = v
         return result
 
-    def _untar_file_and_get_result_json(self, container):
+    def _untar_file_and_get_result_json(self, container: Container):
         try:
-            tar_data_stream, _ = self.cli.get_archive(container=container, path=self.RESULT_PATH)
+            tar_data_stream, _ = container.get_archive(path=self.RESULT_PATH)
         except NotFound:
             return dict()
 
         with tempfile.NamedTemporaryFile() as tmp:
-            for chunk in tar_data_stream.stream():
+            for chunk in tar_data_stream:
                 tmp.write(chunk)
             tmp.seek(0)
             with tarfile.open(mode='r', fileobj=tmp) as tar:

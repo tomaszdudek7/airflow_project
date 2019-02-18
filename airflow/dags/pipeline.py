@@ -11,7 +11,7 @@ from launcher.docker import do_test_docker
 
 default_args = {
     'owner': 'airflow',
-    'start_date': datetime(2019, 2, 15),
+    'start_date': datetime.now(),
 }
 
 
