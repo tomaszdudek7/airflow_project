@@ -13,7 +13,7 @@ This repository contains the code for article (to be added). It features an scaf
 * clone the project
 * go to `./airflow/` and run `docker build . -t puckel-airflow-with-docker-inside:latest`
 * make sure you have [docker-py](https://github.com/docker/docker-py) and run `python build_images.py`
-* go to `./airflow` and run `docker-compose up`
+* go to `./airflow` and run `docker-compose up -f docker-compose-linux.yml` (or just `up` when using OSX)
 * launch http://localhost:8080/admin/, ensure that DAG is ON:
 
 ![on](on.png)
