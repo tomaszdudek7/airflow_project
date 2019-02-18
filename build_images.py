@@ -24,7 +24,7 @@ class ImagesBuilder:
         self.args = parser.parse_args()
         self.loud = self.args.loud
         self.log = self.configure_and_get_logger()
-        self.docker = docker.from_env()
+        self.cli = docker.from_env()
 
     def build_images(self):
         directories = self.get_directories_to_browse()
@@ -37,7 +37,7 @@ class ImagesBuilder:
         try:
             self.copy_libraries(directory_name)
             self.log.info("Building image. (run script with -l to see docker logs)")
-            build_logs = self.docker.build(path=f'./docker/{directory_name}', tag=directory_name, rm=True)
+            image, build_logs = self.cli.images.build(path=f'./docker/{directory_name}', tag=directory_name, rm=True)
 
             while True:
                 try:
@@ -51,14 +51,10 @@ class ImagesBuilder:
             self.remove_libraries(directory_name)
 
     def parse_output(self, raw) -> str:
-        output = raw.decode('ascii').strip('\r\n')
         try:
-            json_output = json.loads(output)
-            if 'stream' in json_output:
-                return json_output['stream'].strip('\n')
-        except JSONDecodeError:
+            return raw['stream'].strip('\n')
+        except KeyError:
             return raw
-        return raw
 
     def copy_libraries(self, directory_name):
         for library in LIBRARIES_TO_COPY:
