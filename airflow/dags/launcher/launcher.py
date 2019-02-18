@@ -84,7 +84,10 @@ class ContainerLauncher:
             for member in tf.getmembers():
                 f = tf.extractfile(member)
                 result = json.loads(f.read())
-                os.remove(self.RESULT_TGZ_NAME)
+                try:
+                    os.remove(self.RESULT_TGZ_NAME)
+                except OSError:
+                    pass
                 return result
 
     def _pull_all_parent_xcoms(self, context: Dict):
