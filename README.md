@@ -2,7 +2,7 @@
 ![airflow](airflowlogo.png)
 
 # Yet Another Scalable Apache Airflow With Docker Example Setup
-This repository contains the code for article <to be added>. It features an Apache Airflow scaffold, whose workers, instead of executing the job themselves, run Docker containers and wait until they complete.
+This repository contains the code for article (to be added). It features an scaffold of Apache Airflow, whose workers instead of executing the job themselves, run Docker containers and wait until they complete.
 
 # Requirements
 * Linux or MacOS
