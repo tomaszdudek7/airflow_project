@@ -58,7 +58,7 @@ class ContainerLauncher:
         if xcoms is None or xcoms == [] or xcoms == () or xcoms == (None,):
             return {}
         elif len(xcoms) == 1:
-            return dict(xcoms)
+            return dict(xcoms[0])
 
         result = {}
         egible_xcoms = (d for d in xcoms if d is not None and len(d) > 0)
