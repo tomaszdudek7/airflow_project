@@ -19,9 +19,11 @@ class ContainerLauncher:
     RESULT_TGZ_NAME = "result.tgz"
     RESULT_PATH = f"/tmp/{RESULT_TGZ_NAME}"
 
-    def __init__(self, image_name: str):
+    def __init__(self, image_name: str, run_kwargs={}):
+        '''Run kwargs: kwargs passed to self.cli.containers.run. It can be used to mount volumes to task containers during launch'''
         self.cli = docker.from_env()
         self.image_name = image_name
+        self.run_kwargs = run_kwargs
 
     def run(self, **context):
         log.info(f"Creating image {self.image_name}")
@@ -31,7 +33,7 @@ class ContainerLauncher:
         }
         args_json_escaped = self._pull_all_parent_xcoms(context)
         container: Container = self.cli.containers.run(detach=True, image=self.image_name, environment=environment,
-                                            command=args_json_escaped)
+                                            command=args_json_escaped, **self.run_kwargs)
 
         container_id = container.id
         log.info(f"Running container with id {container_id}")
