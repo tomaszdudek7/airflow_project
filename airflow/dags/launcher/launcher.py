@@ -28,9 +28,14 @@ class ContainerLauncher:
     def run(self, **context):
         log.info(f"Creating image {self.image_name}")
 
-        environment = {
-            'EXECUTION_ID': (context['dag_run'].run_id)
-        }
+       # get environment variables from UI
+        try:
+            environment = Variable.get(self.image_name, deserialize_json=True)
+        except:
+            environment = dict()
+
+        environment['EXECUTION_ID'] = (context['dag_run'].run_id)
+        
         args_json_escaped = self._pull_all_parent_xcoms(context)
         container: Container = self.cli.containers.run(detach=True, image=self.image_name, environment=environment,
                                             command=args_json_escaped, **self.run_kwargs)
