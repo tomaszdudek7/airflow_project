@@ -54,7 +54,7 @@ ptyprocess==0.6.0
 pyasn1==0.4.5
 pyasn1-modules==0.2.4
 pycparser==2.19
-Pygments==2.2.0
+Pygments==2.7.4
 PyJWT==1.7.1
 Pympler==0.6
 pyparsing==2.2.2
