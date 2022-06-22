@@ -37,7 +37,7 @@ nbconvert==5.4.0
 nbformat==4.4.0
 notebook==5.7.4
 nteract-on-jupyter==2.0.5
-numpy==1.14.3
+numpy==1.22.0
 oauthlib==3.0.1
 pampy==0.1.5
 pandas==0.23.0
